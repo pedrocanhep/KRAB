@@ -1,10 +1,9 @@
 <script setup lang="ts">
-  
+import { RouterView } from 'vue-router'
 </script>
 
 <template>
-  <h1>Olá mundo!</h1>
-  <p>Esse é apenas o início do KRAB, bora pra cima!</p>
+  <RouterView />
 </template>
 
 <style scoped></style>
