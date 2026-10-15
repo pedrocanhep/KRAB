@@ -12,7 +12,6 @@ import {
 export async function receitasRoutes(app: FastifyInstance) {
   app.addHook('preHandler', autenticar)
 
-  // Criar (efeito no saldo: + valor, uma única vez)
   app.post('/receitas', async (req, reply) => {
     const body = criarReceitaSchema.parse(req.body)
     const chave = chaveIdempotenciaSchema.parse(req.headers['idempotency-key'])
@@ -29,7 +28,6 @@ export async function receitasRoutes(app: FastifyInstance) {
     return reply.code(201).send(data)
   })
 
-  // Listar (leitura direta; o RLS garante que só vêm as linhas do usuário)
   app.get('/receitas', async (req, reply) => {
     const f = listarReceitasSchema.parse(req.query)
 
@@ -51,7 +49,6 @@ export async function receitasRoutes(app: FastifyInstance) {
     return { itens: data, total: count ?? 0, limit: f.limit, offset: f.offset }
   })
 
-  // Detalhe + histórico de lançamentos no saldo
   app.get('/receitas/:id', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
 
@@ -72,7 +69,6 @@ export async function receitasRoutes(app: FastifyInstance) {
     return { ...data, historico: hist.data }
   })
 
-  // Editar (ajusta o saldo pela diferença)
   app.patch('/receitas/:id', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
     const body = editarReceitaSchema.parse(req.body)
@@ -88,7 +84,6 @@ export async function receitasRoutes(app: FastifyInstance) {
     return data
   })
 
-  // Exclusão lógica (estorna o saldo)
   app.delete('/receitas/:id', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
     const { data, error } = await req.db.rpc('excluir_receita', { p_id: id })
@@ -96,7 +91,6 @@ export async function receitasRoutes(app: FastifyInstance) {
     return data
   })
 
-  // Restaurar (reaplica o saldo)
   app.post('/receitas/:id/restauracao', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
     const { data, error } = await req.db.rpc('restaurar_receita', { p_id: id })

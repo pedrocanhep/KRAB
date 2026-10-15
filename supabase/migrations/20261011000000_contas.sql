@@ -1,11 +1,4 @@
--- KRAB — Contas (bancos, poupanças e caixas): cadastro completo.
--- Estende a tabela conta (criada na migration de receitas) e cria as funções da API.
--- Rodar UMA vez, depois das migrations de receitas e despesas.
---
--- ATENÇÃO: se você criou mais de uma conta com o MESMO nome, o índice único abaixo falha.
--- Nesse caso, renomeie uma delas antes (update public.conta set nome = 'Outro nome' where id = '...').
 
--- ============ NOVAS COLUNAS ============
 
 alter table public.conta
   add column tipo text not null default 'corrente'
@@ -16,14 +9,10 @@ alter table public.conta
   add column digito_verificador text check (digito_verificador ~ '^[0-9A-Za-z]{1,2}$'),
   add column updated_at timestamptz not null default now();
 
--- Um usuário não pode ter duas contas ATIVAS com o mesmo nome (ignora maiúsculas e espaços nas pontas).
 create unique index conta_nome_unico_idx
   on public.conta (user_id, lower(btrim(nome)))
   where deleted_at is null;
 
--- ============ FUNÇÕES PÚBLICAS (chamadas pela API) ============
--- O saldo NUNCA é alterado direto: só nasce no saldo inicial (registrado no ledger como 'ajuste')
--- e depois muda pelas receitas e despesas pagas.
 
 create function public.criar_conta(
   p_nome text,
@@ -66,7 +55,6 @@ begin
 end;
 $$;
 
--- Editar: só dados cadastrais. Campo bancário enviado como '' (vazio) é LIMPO; null = não mexe.
 create function public.editar_conta(
   p_id uuid,
   p_nome text default null,
@@ -110,8 +98,6 @@ begin
 end;
 $$;
 
--- Excluir (lógico): bloqueado se houver despesa PENDENTE ativa (pagá-la depois cairia numa conta excluída).
--- O saldo e o histórico ficam preservados. Repetir não faz nada.
 create function public.excluir_conta(p_id uuid)
 returns public.conta
 language plpgsql
@@ -141,7 +127,6 @@ begin
 end;
 $$;
 
--- Restaurar: falha se já existir outra conta ativa com o mesmo nome. Repetir não faz nada.
 create function public.restaurar_conta(p_id uuid)
 returns public.conta
 language plpgsql

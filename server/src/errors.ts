@@ -16,7 +16,6 @@ const MENSAGENS: Record<string, { status: number; mensagem: string }> = {
   data_pagamento_invalida: { status: 422, mensagem: 'A data de pagamento não pode ser futura.' },
 }
 
-// Códigos do Postgres para "dado inválido" (check, uuid ruim, data ruim, número fora do limite).
 const CODIGOS_422 = new Set(['23514', '22P02', '22007', '22008', '22003'])
 
 export function responderErroDb(reply: FastifyReply, error: ErroDb) {
@@ -30,7 +29,6 @@ export function responderErroDb(reply: FastifyReply, error: ErroDb) {
       .code(422)
       .send({ erro: 'dados_invalidos', mensagem: 'Algum valor viola as regras de validação.' })
   }
-  // Não vazamos detalhes internos ao cliente; o detalhe vai para o log.
   reply.log.error({ error }, 'erro inesperado do banco')
   return reply.code(500).send({ erro: 'erro_interno', mensagem: 'Não foi possível concluir a operação.' })
 }

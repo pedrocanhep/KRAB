@@ -16,7 +16,6 @@ export const criarDespesaSchema = z
   })
   .strict()
 
-// Em despesa PAGA, conta_id é recusado pelo banco (409). Em pendente, pode trocar.
 export const editarDespesaSchema = z
   .object({
     descricao: descricao.optional(),
@@ -28,7 +27,6 @@ export const editarDespesaSchema = z
   .strict()
   .refine((o) => Object.keys(o).length > 0, 'Informe ao menos um campo para alterar.')
 
-// Pagamento é integral: não existe valor_pago aqui. Data é opcional (padrão: hoje, fuso de São Paulo).
 export const pagarDespesaSchema = z
   .object({
     data_pagamento: data.optional(),

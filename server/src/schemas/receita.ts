@@ -1,12 +1,11 @@
 import { z } from 'zod'
 
-// Dinheiro como STRING ("1200.00"), nunca float. Até 2 casas decimais, maior que zero.
+
 const valor = z
   .string()
   .regex(/^\d{1,12}(\.\d{1,2})?$/, 'Informe um valor como "1200.00" (até 2 casas decimais).')
   .refine((v) => Number(v) > 0, 'O valor deve ser maior que zero.')
 
-// "YYYY-MM-DD" e que exista de verdade (rejeita 2026-02-31).
 const data = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use o formato AAAA-MM-DD.')
@@ -28,7 +27,7 @@ export const criarReceitaSchema = z
   })
   .strict()
 
-// conta_id NÃO pode ser alterado (.strict() rejeita o campo). Para mudar de conta: excluir e recriar.
+
 export const editarReceitaSchema = z
   .object({
     descricao: descricao.optional(),
@@ -55,7 +54,7 @@ export const listarReceitasSchema = z
     path: ['de'],
   })
 
-// Chave opcional do cabeçalho Idempotency-Key (use um UUID gerado pelo cliente).
+
 export const chaveIdempotenciaSchema = z
   .string()
   .regex(/^[A-Za-z0-9_-]{8,100}$/, 'Idempotency-Key deve ter de 8 a 100 caracteres (letras, números, - e _).')

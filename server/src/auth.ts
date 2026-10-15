@@ -9,7 +9,6 @@ declare module 'fastify' {
   }
 }
 
-// Exige "Authorization: Bearer <JWT>" e confirma o token com o Supabase Auth.
 export async function autenticar(req: FastifyRequest, reply: FastifyReply) {
   const cabecalho = req.headers.authorization
   const token = cabecalho?.startsWith('Bearer ') ? cabecalho.slice(7).trim() : ''

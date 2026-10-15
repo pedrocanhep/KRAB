@@ -1,8 +1,4 @@
--- KRAB — Despesas: pendente NÃO mexe no saldo; só o pagamento debita.
--- Reaproveita conta, movimentacao_conta (ledger) e o padrão de segurança das receitas.
--- Rodar UMA vez, depois da migration de receitas.
 
--- ============ TABELAS ============
 
 create table public.despesa (
   id uuid primary key default gen_random_uuid(),
@@ -37,8 +33,6 @@ create table public.idempotencia_despesa (
   primary key (user_id, chave)
 );
 
--- ============ SEGURANÇA ============
--- Usuário só LÊ as próprias linhas. Toda ESCRITA passa pelas funções.
 
 alter table public.despesa enable row level security;
 alter table public.idempotencia_despesa enable row level security;
@@ -48,13 +42,7 @@ grant select on public.despesa to authenticated;
 
 create policy despesa_select_own on public.despesa
   for select to authenticated using (user_id = auth.uid());
--- idempotencia_despesa: RLS ligada e SEM policy = só as funções acessam.
 
--- ============ FUNÇÕES INTERNAS ============
-
--- Alvo financeiro da despesa: -valor_pago se estiver PAGA e NÃO excluída; senão 0.
--- Compara com o que o ledger já tem e grava só a DIFERENÇA (repetir não duplica).
--- Só chamar depois de travar a conta (FOR UPDATE).
 create function public.reconciliar_despesa(p_id uuid, p_motivo text)
 returns void
 language plpgsql
@@ -84,7 +72,7 @@ begin
 end;
 $$;
 
--- Monta a resposta padrão: a despesa + saldo atual da conta + aviso de saldo negativo.
+
 create function public.montar_resultado_despesa(p_id uuid)
 returns jsonb
 language sql
@@ -102,9 +90,6 @@ as $$
   where d.id = p_id;
 $$;
 
--- ============ FUNÇÕES PÚBLICAS (chamadas pela API) ============
-
--- Criar: nasce PENDENTE e não mexe no saldo.
 create function public.criar_despesa(
   p_conta_id uuid,
   p_descricao text,
@@ -185,7 +170,7 @@ begin
 end;
 $$;
 
--- Editar: pendente pode trocar de conta; paga NÃO. Se paga e o valor mudar, o saldo ajusta pela diferença.
+
 create function public.editar_despesa(
   p_id uuid,
   p_descricao text default null,
@@ -271,7 +256,6 @@ begin
 end;
 $$;
 
--- Restaurar: se estava paga, reaplica o débito. Repetir não faz nada.
 create function public.restaurar_despesa(p_id uuid)
 returns jsonb
 language plpgsql
@@ -301,7 +285,6 @@ begin
 end;
 $$;
 
--- ============ PERMISSÕES DAS FUNÇÕES ============
 revoke all on function public.reconciliar_despesa(uuid, text) from public, anon, authenticated;
 revoke all on function public.montar_resultado_despesa(uuid) from public, anon, authenticated;
 

@@ -1,7 +1,4 @@
--- KRAB — Receitas: tabelas, ledger (histórico de saldo), RLS e funções atômicas.
--- Rodar UMA vez, no SQL Editor de um projeto Supabase de DESENVOLVIMENTO.
 
--- ============ TABELAS ============
 
 create table public.conta (
   id uuid primary key default gen_random_uuid(),
@@ -27,7 +24,7 @@ create table public.receita (
 create index receita_user_data_idx on public.receita (user_id, data_recebimento desc);
 create index receita_conta_idx on public.receita (conta_id);
 
--- Ledger: só recebe INSERT. Cada linha é uma mudança de saldo, com o motivo.
+
 create table public.movimentacao_conta (
   id bigint generated always as identity primary key,
   user_id uuid not null references auth.users(id),
@@ -41,7 +38,7 @@ create table public.movimentacao_conta (
 create index mov_origem_idx on public.movimentacao_conta (origem_tipo, origem_id);
 create index mov_conta_idx on public.movimentacao_conta (conta_id);
 
--- Guarda a chave de idempotência de cada criação (evita duplicar em requisição repetida).
+-
 create table public.idempotencia (
   user_id uuid not null references auth.users(id),
   chave text not null,
@@ -50,9 +47,6 @@ create table public.idempotencia (
   primary key (user_id, chave)
 );
 
--- ============ SEGURANÇA (RLS + permissões) ============
--- Regra: o usuário só LÊ as próprias linhas. Toda ESCRITA passa pelas funções abaixo.
--- Sem isso, quem tem a chave anon + JWT poderia alterar saldo direto pelo PostgREST.
 
 alter table public.conta enable row level security;
 alter table public.receita enable row level security;
@@ -69,12 +63,6 @@ create policy receita_select_own on public.receita
   for select to authenticated using (user_id = auth.uid());
 create policy mov_select_own on public.movimentacao_conta
   for select to authenticated using (user_id = auth.uid());
--- idempotencia: RLS ligada e SEM policy = ninguém acessa direto; só as funções.
-
--- ============ FUNÇÃO INTERNA: reconciliar saldo ============
--- Calcula o "alvo" da receita (+valor se ativa, 0 se excluída), compara com o que já
--- foi lançado no ledger e grava só a DIFERENÇA. Chamar duas vezes não duplica nada.
--- Só deve ser chamada depois de travar a conta (FOR UPDATE).
 
 create function public.reconciliar_receita(p_id uuid, p_motivo text)
 returns void
@@ -105,7 +93,6 @@ begin
 end;
 $$;
 
--- ============ FUNÇÕES PÚBLICAS (chamadas pela API) ============
 
 create function public.criar_receita(
   p_conta_id uuid,

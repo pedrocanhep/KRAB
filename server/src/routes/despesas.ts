@@ -9,13 +9,10 @@ import {
   pagarDespesaSchema,
 } from '../schemas/despesa.ts'
 
-// As funções do banco devolvem: { despesa, saldo_conta, saldo_negativo }.
-// saldo_negativo = true é só um AVISO; a operação já foi concluída.
 
 export async function despesasRoutes(app: FastifyInstance) {
   app.addHook('preHandler', autenticar)
 
-  // Criar: nasce PENDENTE, não mexe no saldo
   app.post('/despesas', async (req, reply) => {
     const body = criarDespesaSchema.parse(req.body)
     const chave = chaveIdempotenciaSchema.parse(req.headers['idempotency-key'])
@@ -32,7 +29,6 @@ export async function despesasRoutes(app: FastifyInstance) {
     return reply.code(201).send(data)
   })
 
-  // Listar (leitura direta; o RLS garante que só vêm as linhas do usuário)
   app.get('/despesas', async (req, reply) => {
     const f = listarDespesasSchema.parse(req.query)
 
@@ -56,7 +52,6 @@ export async function despesasRoutes(app: FastifyInstance) {
     return { itens: data, total: count ?? 0, limit: f.limit, offset: f.offset }
   })
 
-  // Detalhe + histórico de lançamentos no saldo
   app.get('/despesas/:id', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
 
@@ -77,7 +72,6 @@ export async function despesasRoutes(app: FastifyInstance) {
     return { ...data, historico: hist.data }
   })
 
-  // Editar (se estiver paga, ajusta o saldo pela diferença; conta só muda se pendente)
   app.patch('/despesas/:id', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
     const body = editarDespesaSchema.parse(req.body)
@@ -94,7 +88,7 @@ export async function despesasRoutes(app: FastifyInstance) {
     return data
   })
 
-  // Pagar: único momento em que o saldo desce (uma única vez, pagamento integral)
+ 
   app.post('/despesas/:id/pagamento', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
     const body = pagarDespesaSchema.parse(req.body ?? {})
@@ -107,7 +101,6 @@ export async function despesasRoutes(app: FastifyInstance) {
     return data
   })
 
-  // Exclusão lógica (se estava paga, estorna)
   app.delete('/despesas/:id', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
     const { data, error } = await req.db.rpc('excluir_despesa', { p_id: id })
@@ -115,7 +108,6 @@ export async function despesasRoutes(app: FastifyInstance) {
     return data
   })
 
-  // Restaurar (se estava paga, reaplica o débito)
   app.post('/despesas/:id/restauracao', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
     const { data, error } = await req.db.rpc('restaurar_despesa', { p_id: id })

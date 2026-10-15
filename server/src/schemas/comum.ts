@@ -1,12 +1,11 @@
 import { z } from 'zod'
 
-// Dinheiro como STRING ("1200.00"), nunca float. Até 2 casas decimais, maior que zero.
+
 export const valorSchema = z
   .string()
   .regex(/^\d{1,12}(\.\d{1,2})?$/, 'Informe um valor como "1200.00" (até 2 casas decimais).')
   .refine((v) => Number(v) > 0, 'O valor deve ser maior que zero.')
 
-// "YYYY-MM-DD" e que exista de verdade (rejeita 2026-02-31).
 export const dataSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use o formato AAAA-MM-DD.')
@@ -20,7 +19,6 @@ export const categoriaSchema = z.string().trim().min(1, 'Categoria obrigatória.
 
 export const idParamSchema = z.object({ id: z.string().uuid() })
 
-// Chave opcional do cabeçalho Idempotency-Key (use um UUID gerado pelo cliente).
 export const chaveIdempotenciaSchema = z
   .string()
   .regex(/^[A-Za-z0-9_-]{8,100}$/, 'Idempotency-Key deve ter de 8 a 100 caracteres (letras, números, - e _).')

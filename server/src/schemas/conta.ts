@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-// Saldo inicial pode ser zero, positivo ou negativo (conta no vermelho). String, nunca float.
+
 const saldoInicial = z
   .string()
   .regex(/^-?\d{1,12}(\.\d{1,2})?$/, 'Informe um valor como "500.00" ou "-100.00" (até 2 casas decimais).')
@@ -8,7 +8,6 @@ const saldoInicial = z
 const nome = z.string().trim().min(1, 'Nome obrigatório.').max(50)
 const tipo = z.enum(['corrente', 'poupanca', 'caixa', 'outro'])
 
-// Campos bancários: só dígitos, nos tamanhos da documentação do projeto.
 const codBanco = z.string().trim().regex(/^\d{1,4}$/, 'Código do banco: até 4 dígitos.')
 const agencia = z.string().trim().regex(/^\d{1,5}$/, 'Agência: até 5 dígitos.')
 const numConta = z.string().trim().regex(/^\d{1,15}$/, 'Número da conta: até 15 dígitos.')
@@ -26,8 +25,6 @@ export const criarContaSchema = z
   })
   .strict()
 
-// O saldo NÃO pode ser editado aqui (.strict() rejeita saldo_disponivel e saldo_inicial).
-// Para LIMPAR um campo bancário, envie null.
 export const editarContaSchema = z
   .object({
     nome: nome.optional(),

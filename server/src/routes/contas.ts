@@ -4,14 +4,11 @@ import { responderErroDb } from '../errors.ts'
 import { idParamSchema } from '../schemas/comum.ts'
 import { criarContaSchema, editarContaSchema, listarContasSchema } from '../schemas/conta.ts'
 
-// Na edição, null significa "limpar o campo" e o banco entende '' como limpar.
-// Campo ausente (undefined) não vai no JSON e o banco entende como "não mexe".
 const limpar = (v: string | null | undefined) => (v === null ? '' : v)
 
 export async function contasRoutes(app: FastifyInstance) {
   app.addHook('preHandler', autenticar)
 
-  // Criar (com saldo inicial opcional, registrado no ledger como 'ajuste')
   app.post('/contas', async (req, reply) => {
     const body = criarContaSchema.parse(req.body)
 
@@ -28,7 +25,6 @@ export async function contasRoutes(app: FastifyInstance) {
     return reply.code(201).send(data)
   })
 
-  // Listar (leitura direta; o RLS garante que só vêm as contas do usuário)
   app.get('/contas', async (req, reply) => {
     const f = listarContasSchema.parse(req.query)
 
@@ -47,7 +43,6 @@ export async function contasRoutes(app: FastifyInstance) {
     return { itens: data, total: count ?? 0, limit: f.limit, offset: f.offset }
   })
 
-  // Detalhe + últimas 20 movimentações do saldo
   app.get('/contas/:id', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
 
@@ -68,7 +63,6 @@ export async function contasRoutes(app: FastifyInstance) {
     return { ...data, ultimas_movimentacoes: mov.data }
   })
 
-  // Editar dados cadastrais (nunca o saldo)
   app.patch('/contas/:id', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
     const body = editarContaSchema.parse(req.body)
@@ -86,7 +80,6 @@ export async function contasRoutes(app: FastifyInstance) {
     return data
   })
 
-  // Exclusão lógica (bloqueada se houver despesa pendente)
   app.delete('/contas/:id', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
     const { data, error } = await req.db.rpc('excluir_conta', { p_id: id })
@@ -94,7 +87,6 @@ export async function contasRoutes(app: FastifyInstance) {
     return data
   })
 
-  // Restaurar
   app.post('/contas/:id/restauracao', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
     const { data, error } = await req.db.rpc('restaurar_conta', { p_id: id })
