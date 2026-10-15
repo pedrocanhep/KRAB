@@ -8,9 +8,11 @@ const MENSAGENS: Record<string, { status: number; mensagem: string }> = {
   conta_nao_encontrada: { status: 404, mensagem: 'Conta não encontrada.' },
   receita_nao_encontrada: { status: 404, mensagem: 'Receita não encontrada.' },
   despesa_nao_encontrada: { status: 404, mensagem: 'Despesa não encontrada.' },
-  estado_invalido: { status: 409, mensagem: 'Operação não permitida para um lançamento excluído.' },
+  estado_invalido: { status: 409, mensagem: 'Operação não permitida para um registro excluído.' },
   conta_nao_alteravel: { status: 409, mensagem: 'Não é possível trocar a conta de uma despesa já paga.' },
   conflito_concorrencia: { status: 409, mensagem: 'O registro foi alterado ao mesmo tempo. Tente novamente.' },
+  nome_ja_existe: { status: 409, mensagem: 'Já existe uma conta ativa com esse nome.' },
+  conta_com_pendencias: { status: 409, mensagem: 'A conta tem despesas pendentes. Pague ou exclua essas despesas antes.' },
   data_pagamento_invalida: { status: 422, mensagem: 'A data de pagamento não pode ser futura.' },
 }
 
