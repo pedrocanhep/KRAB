@@ -2,12 +2,16 @@ import type { FastifyReply } from 'fastify'
 
 type ErroDb = { message: string; code?: string }
 
-// As funções SQL levantam exceções com estes textos (ver a migration).
+// As funções SQL levantam exceções com estes textos (ver as migrations).
 const MENSAGENS: Record<string, { status: number; mensagem: string }> = {
   nao_autenticado: { status: 401, mensagem: 'Não autenticado.' },
   conta_nao_encontrada: { status: 404, mensagem: 'Conta não encontrada.' },
   receita_nao_encontrada: { status: 404, mensagem: 'Receita não encontrada.' },
-  estado_invalido: { status: 409, mensagem: 'Operação não permitida para uma receita excluída.' },
+  despesa_nao_encontrada: { status: 404, mensagem: 'Despesa não encontrada.' },
+  estado_invalido: { status: 409, mensagem: 'Operação não permitida para um lançamento excluído.' },
+  conta_nao_alteravel: { status: 409, mensagem: 'Não é possível trocar a conta de uma despesa já paga.' },
+  conflito_concorrencia: { status: 409, mensagem: 'O registro foi alterado ao mesmo tempo. Tente novamente.' },
+  data_pagamento_invalida: { status: 422, mensagem: 'A data de pagamento não pode ser futura.' },
 }
 
 // Códigos do Postgres para "dado inválido" (check, uuid ruim, data ruim, número fora do limite).
