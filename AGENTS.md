@@ -349,3 +349,19 @@ Primeiro:
 4. aguardar decisão quando a alteração puder afetar contrato, arquitetura, banco ou documentação.
 
 O código existente não deve ser considerado automaticamente correto apenas por estar implementado.
+
+## Segredos e arquivos sensíveis
+
+Arquivos `.env` podem existir localmente.
+
+Nunca:
+
+- abrir ou exibir o conteúdo de `.env`;
+- reproduzir chaves, tokens, senhas ou secrets;
+- incluir valores sensíveis em logs, respostas ou commits.
+
+Quando precisar validar configuração:
+
+- verificar apenas se a variável existe;
+- nunca imprimir seu valor;
+- preferir mensagens como `SUPABASE_URL configurada: sim/não`.
