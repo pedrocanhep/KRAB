@@ -25,7 +25,7 @@ const router = createRouter({
 // Executado após instalar o Pinia. A proteção local melhora a navegação;
 // as rotas do backend ainda validam cada requisição independentemente.
 router.beforeEach((to) => {
-  if (to.path !== '/despesas') return
+  if (to.path === '/login') return
   try {
     useAuthStore().obterToken()
   } catch {

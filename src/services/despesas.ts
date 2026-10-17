@@ -1,4 +1,4 @@
-import { useAuthStore } from '../stores/auth'
+import { verificarResposta } from './http'
 
 // Contrato enviado ao POST: o backend exige valor decimal como texto, não como número.
 interface CriarDespesaPayload {
@@ -26,32 +26,7 @@ interface ListagemDespesas {
   offset: number
 }
 
-// As consultas e o cadastro compartilham o formato de erro da API. A mensagem inclui o status
-// e os detalhes de validação, mas nunca inclui o token enviado na requisição.
-async function verificarResposta(resposta: Response): Promise<void> {
-  if (resposta.ok) return
-
-  // Um 401 invalida somente o token local. Não redirecionamos automaticamente:
-  // assim os dados digitados na tela continuam disponíveis até o usuário sair.
-  if (resposta.status === 401) {
-    useAuthStore().invalidarToken()
-    throw new Error('Sessão inválida ou expirada. Entre novamente em /login.')
-  }
-
-  // Uma resposta sem JSON ainda deve produzir um erro útil com o status HTTP.
-  const erro = (await resposta.json().catch(() => null)) as {
-    erro?: string
-    mensagem?: string
-    detalhes?: { campo: string; mensagem: string }[]
-  } | null
-  const detalhes = erro?.detalhes?.map((item) => `${item.campo}: ${item.mensagem}`).join('; ')
-  throw new Error(
-    `HTTP ${resposta.status}: ${erro?.erro ?? 'Falha na requisição'}` +
-      (erro?.mensagem || detalhes ? ` — ${erro?.mensagem || detalhes}` : ''),
-  )
-}
-
-// Tipamos apenas o campo da conta usado neste teste, sem criar seleção de conta.
+// A seleção automática precisa apenas do identificador da primeira conta ativa.
 interface ListagemContas {
   itens: { id: string }[]
   total: number

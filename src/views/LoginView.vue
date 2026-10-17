@@ -21,7 +21,7 @@ async function entrar() {
     auth.definirSessao(sessao.access_token, sessao.expires_at)
     // Só limpamos após sucesso; erros mantêm os campos para correção.
     senha.value = ''
-    await router.push('/despesas')
+    await router.push('/')
   } catch (erro) {
     mensagem.value =
       erro instanceof TypeError
