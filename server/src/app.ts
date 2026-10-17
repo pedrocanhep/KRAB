@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import { ZodError } from 'zod'
 import { config } from './config.ts'
+import { authRoutes } from './routes/auth.ts'
 import { contasRoutes } from './routes/contas.ts'
 import { despesasRoutes } from './routes/despesas.ts'
 import { receitasRoutes } from './routes/receitas.ts'
@@ -14,6 +15,7 @@ export function buildApp() {
   app.register(cors, { origin: config.corsOrigin })
 
   app.get('/health', async () => ({ status: 'ok' }))
+  app.register(authRoutes)
   app.register(receitasRoutes)
   app.register(despesasRoutes)
   app.register(contasRoutes)
