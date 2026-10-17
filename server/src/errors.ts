@@ -2,7 +2,6 @@ import type { FastifyReply } from 'fastify'
 
 type ErroDb = { message: string; code?: string }
 
-// As funções SQL levantam exceções com estes textos (ver as migrations).
 const MENSAGENS: Record<string, { status: number; mensagem: string }> = {
   nao_autenticado: { status: 401, mensagem: 'Não autenticado.' },
   conta_nao_encontrada: { status: 404, mensagem: 'Conta não encontrada.' },
@@ -13,6 +12,8 @@ const MENSAGENS: Record<string, { status: number; mensagem: string }> = {
   conflito_concorrencia: { status: 409, mensagem: 'O registro foi alterado ao mesmo tempo. Tente novamente.' },
   nome_ja_existe: { status: 409, mensagem: 'Já existe uma conta ativa com esse nome.' },
   conta_com_pendencias: { status: 409, mensagem: 'A conta tem despesas pendentes. Pague ou exclua essas despesas antes.' },
+  recorrencia_nao_encontrada: { status: 404, mensagem: 'Recorrência não encontrada.' },
+  inicio_muito_antigo: { status: 422, mensagem: 'A data de início não pode ser anterior a 31 dias atrás.' },
   data_pagamento_invalida: { status: 422, mensagem: 'A data de pagamento não pode ser futura.' },
 }
 
@@ -29,6 +30,7 @@ export function responderErroDb(reply: FastifyReply, error: ErroDb) {
       .code(422)
       .send({ erro: 'dados_invalidos', mensagem: 'Algum valor viola as regras de validação.' })
   }
+  
   reply.log.error({ error }, 'erro inesperado do banco')
   return reply.code(500).send({ erro: 'erro_interno', mensagem: 'Não foi possível concluir a operação.' })
 }

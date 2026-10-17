@@ -5,6 +5,7 @@ import { config } from './config.ts'
 import { contasRoutes } from './routes/contas.ts'
 import { despesasRoutes } from './routes/despesas.ts'
 import { receitasRoutes } from './routes/receitas.ts'
+import { recorrenciasRoutes } from './routes/recorrencias.ts'
 import { relatoriosRoutes } from './routes/relatorios.ts'
 
 export function buildApp() {
@@ -17,6 +18,7 @@ export function buildApp() {
   app.register(despesasRoutes)
   app.register(contasRoutes)
   app.register(relatoriosRoutes)
+  app.register(recorrenciasRoutes)
 
   app.setErrorHandler((error, _req, reply) => {
     if (error instanceof ZodError) {
