@@ -5,6 +5,7 @@ import { config } from './config.ts'
 import { contasRoutes } from './routes/contas.ts'
 import { despesasRoutes } from './routes/despesas.ts'
 import { receitasRoutes } from './routes/receitas.ts'
+import { relatoriosRoutes } from './routes/relatorios.ts'
 
 export function buildApp() {
   const app = Fastify({ logger: true })
@@ -15,6 +16,7 @@ export function buildApp() {
   app.register(receitasRoutes)
   app.register(despesasRoutes)
   app.register(contasRoutes)
+  app.register(relatoriosRoutes)
 
   app.setErrorHandler((error, _req, reply) => {
     if (error instanceof ZodError) {
