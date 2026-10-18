@@ -213,15 +213,24 @@ body:has(.dashboard-shell) {
   color: #f2b5b5;
 }
 .movements {
-  min-height: 346px;
-  flex: 1;
+  min-height: 0;
+  flex: 0 0 auto;
 }
 .movement-list {
+  overflow-y: auto;
+  overflow-x: hidden;
+  align-content: start;
+  scrollbar-width: thin;
+  scrollbar-color: #36574d transparent;
   list-style: none;
   padding: 0;
   margin: 0;
   display: grid;
   gap: 12px;
+}
+.movement-list:focus-visible {
+  outline: 2px solid #91d8f4;
+  outline-offset: 4px;
 }
 .movement-list li {
   display: flex;
@@ -533,4 +542,28 @@ body:has(.dashboard-shell) {
   .drawer-leave-active .drawer-panel {
     transition: none;
   }
+}
+
+/* Conta é uma atividade de cadastro, sem valor de entrada ou saída. */
+.movement-list .banco .icon-box {
+  background: #003440;
+  color: #91d8f4;
+}
+
+/* BRL completo também deve caber nos cards com saldo negativo ou alto. */
+.balance-value {
+  font-size: clamp(30px, 3.3vw, 52px);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.summary > strong {
+  overflow-wrap: anywhere;
+}
+.balance-value.summary-feedback,
+.summary > strong.summary-feedback {
+  font-size: 20px;
+}
+.summary-error {
+  color: #ffb8bc;
+  margin: 0 0 24px;
 }

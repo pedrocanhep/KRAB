@@ -1,19 +1,25 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import logo from '../../midia/logo-krab-png.png'
 import Icon from '../components/dashboard/DashboardIcon.vue'
-import RecentMovements from '../components/dashboard/RecentMovements.vue'
+import RecentActivities from '../components/dashboard/RecentActivities.vue'
 import SideDrawer from '../components/dashboard/SideDrawer.vue'
 import LancamentoForm from '../components/forms/LancamentoForm.vue'
 import ContaForm from '../components/forms/ContaForm.vue'
-import { obterDashboard, type Movimento } from '../services/dashboard'
+import { obterAtividades, type Atividade } from '../services/atividades'
+import {
+  obterResumoDesenvolvimento,
+  type ResumoDesenvolvimento,
+} from '../services/resumo-desenvolvimento'
+import { moeda } from '../services/dashboard'
 import { mensagemErro } from '../services/http'
 import { useAuthStore } from '../stores/auth'
 import '../assets/dashboard.css'
 
 type Cadastro = 'receita' | 'despesa' | 'banco'
 const auth = useAuthStore()
-const movimentos = ref<Movimento[]>([])
+const atividades = ref<Atividade[]>([])
 const carregando = ref(false)
 const erro = ref('')
 const cadastro = ref<Cadastro | null>(null)
@@ -24,21 +30,72 @@ const atalhos = [
   { tipo: 'despesa' as const, icone: 'menos', descricao: 'Registrar saída, conta ou gasto' },
   { tipo: 'banco' as const, icone: 'banco', descricao: 'Adicionar conta, cartão ou instituição' },
 ]
-// Apenas a lista de movimentações usa o retorno real. Os resumos, alertas e
-// relatórios abaixo são demonstrações visuais até sua integração ser solicitada.
-async function carregarDashboard() {
-  if (carregando.value) return
+// Atividades e os três cards principais usam a API. Resumo rápido, alertas
+// e relatórios continuam demonstrativos nesta etapa.
+let atualizarNovamente = false
+async function carregarAtividades() {
+  // Se um POST terminar durante uma leitura anterior, repetimos o GET ao final
+  // para não perder a atualização. Não inserimos cadastros apenas no estado local.
+  if (carregando.value) {
+    atualizarNovamente = true
+    return
+  }
   carregando.value = true
   erro.value = ''
   try {
-    const resposta = await obterDashboard(auth.obterToken())
-    movimentos.value = resposta.movimentacoes_recentes
+    const resposta = await obterAtividades(auth.obterToken())
+    atividades.value = resposta.itens
   } catch (falha) {
-    movimentos.value = []
+    atividades.value = []
     erro.value = mensagemErro(falha)
   } finally {
     carregando.value = false
+    if (atualizarNovamente) {
+      atualizarNovamente = false
+      void carregarAtividades()
+    }
   }
+}
+
+// Regra TEMPORÁRIA de desenvolvimento: todas as receitas e despesas ativas,
+// sem separar contas ou status. TODO: migrar para o saldo financeiro oficial.
+const resumo = ref<ResumoDesenvolvimento | null>(null)
+const carregandoResumo = ref(false)
+const erroResumo = ref('')
+let atualizarResumoNovamente = false
+
+async function carregarResumoDesenvolvimento() {
+  if (carregandoResumo.value) {
+    atualizarResumoNovamente = true
+    return
+  }
+  carregandoResumo.value = true
+  erroResumo.value = ''
+  try {
+    resumo.value = await obterResumoDesenvolvimento(auth.obterToken())
+  } catch (falha) {
+    // Não mostramos números antigos como se a atualização tivesse funcionado.
+    resumo.value = null
+    erroResumo.value = mensagemErro(falha)
+  } finally {
+    carregandoResumo.value = false
+    if (atualizarResumoNovamente) {
+      atualizarResumoNovamente = false
+      void carregarResumoDesenvolvimento()
+    }
+  }
+}
+
+function exibirTotal(campo: keyof ResumoDesenvolvimento): string {
+  if (carregandoResumo.value) return 'Carregando…'
+  return resumo.value ? moeda(resumo.value[campo]) : 'Indisponível'
+}
+
+// POST confirmado dispara novas leituras independentes: erro no resumo não
+// apaga o sucesso do formulário. Conta continua atualizando apenas atividades.
+function aposSalvarLancamento() {
+  void carregarAtividades()
+  void carregarResumoDesenvolvimento()
 }
 
 // Fechar não muda a rota. Impedimos fechamento durante o POST e confirmamos
@@ -49,7 +106,10 @@ function fecharDrawer() {
     return
   cadastro.value = null
 }
-onMounted(carregarDashboard)
+onMounted(() => {
+  void carregarAtividades()
+  void carregarResumoDesenvolvimento()
+})
 </script>
 
 <template>
@@ -73,13 +133,21 @@ onMounted(carregarDashboard)
         </div>
       </header>
       <main class="dashboard-main">
-        <section class="summary-grid" aria-label="Resumo financeiro de demonstração">
+        <section
+          class="summary-grid"
+          aria-label="Resumo geral provisório de desenvolvimento"
+          :aria-busy="carregandoResumo"
+        >
           <article class="panel balance">
             <p class="greeting">Olá, boas-vindas</p>
             <p class="muted">Saldo atual</p>
-            <div class="balance-value"><sup>R$</sup> 2.000,00</div>
-            <div class="balance-tags">
-              <span>R$ 1.240,00 em receitas</span><span>R$ 760,00 em despesas</span>
+            <div class="balance-value" :class="{ 'summary-feedback': carregandoResumo || !resumo }">
+              {{ exibirTotal('saldo') }}
+            </div>
+            <p class="muted">Provisório: entradas menos despesas cadastradas</p>
+            <div v-if="resumo && !carregandoResumo" class="balance-tags">
+              <span>{{ moeda(resumo.entradas) }} em receitas</span
+              ><span>{{ moeda(resumo.saidas) }} em despesas</span>
             </div>
           </article>
           <article class="panel summary receita">
@@ -87,26 +155,37 @@ onMounted(carregarDashboard)
               <h3>Entradas</h3>
               <span class="icon-box solid"><Icon /></span>
             </div>
-            <strong>R$ 1.240,00</strong>
-            <p>3 receitas registradas nos últimos 30 dias</p>
+            <strong :class="{ 'summary-feedback': carregandoResumo || !resumo }">{{
+              exibirTotal('entradas')
+            }}</strong>
+            <p>Total geral provisório de receitas cadastradas</p>
           </article>
           <article class="panel summary despesa">
             <div class="summary-heading">
               <h3>Saídas</h3>
               <span class="icon-box solid"><Icon name="saida" /></span>
             </div>
-            <strong>R$ 760,00</strong>
-            <p>5 despesas registradas nos últimos 30 dias</p>
+            <strong :class="{ 'summary-feedback': carregandoResumo || !resumo }">{{
+              exibirTotal('saidas')
+            }}</strong>
+            <p>Total geral provisório de despesas pendentes e pagas</p>
           </article>
         </section>
+        <div v-if="erroResumo" class="summary-error" role="alert">
+          <p>Não foi possível atualizar os totais. {{ erroResumo }}</p>
+          <button v-if="auth.accessToken" class="retry" @click="carregarResumoDesenvolvimento">
+            Tentar novamente
+          </button>
+          <RouterLink v-else to="/login">Entrar novamente</RouterLink>
+        </div>
         <div class="dashboard-columns">
           <div class="column">
-            <RecentMovements
-              :itens="movimentos"
+            <RecentActivities
+              :itens="atividades"
               :carregando="carregando"
               :erro="erro"
               :autenticado="Boolean(auth.accessToken)"
-              @tentar="carregarDashboard"
+              @tentar="carregarAtividades"
             />
             <section class="panel alerts">
               <div class="section-heading">
@@ -216,8 +295,8 @@ onMounted(carregarDashboard)
           </div>
         </section>
         <p class="demo-note">
-          Resumos, alertas e relatórios exibem dados de demonstração. As movimentações recentes são
-          reais.
+          Os três cards principais usam totais provisórios de desenvolvimento. Resumo rápido,
+          alertas e relatórios exibem dados de demonstração. As atividades recentes são reais.
         </p>
       </main>
     </div>
@@ -232,12 +311,12 @@ onMounted(carregarDashboard)
           v-if="cadastro === 'banco'"
           ref="formulario"
           @ocupado="ocupado = $event"
-          @salvo="carregarDashboard" /><LancamentoForm
+          @salvo="carregarAtividades" /><LancamentoForm
           v-else
           ref="formulario"
           :tipo="cadastro"
           @ocupado="ocupado = $event"
-          @salvo="carregarDashboard" /></SideDrawer
+          @salvo="aposSalvarLancamento" /></SideDrawer
     ></Transition>
   </div>
 </template>

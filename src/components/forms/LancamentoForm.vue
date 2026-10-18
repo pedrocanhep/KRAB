@@ -45,7 +45,7 @@ async function salvar() {
     if (props.tipo === 'despesa') {
       await criarDespesa({ ...campos, data_vencimento: data.value }, token)
       sucesso.value =
-        'Despesa cadastrada com sucesso. Ela aparecerá em “Movimentações recentes” após o pagamento.'
+        'Despesa cadastrada com sucesso. Ela permanece pendente e só altera o saldo após o pagamento.'
     } else {
       await criarReceita({ ...campos, data_recebimento: data.value }, token)
       sucesso.value = 'Receita cadastrada com sucesso.'
