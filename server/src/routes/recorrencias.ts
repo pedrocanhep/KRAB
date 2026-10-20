@@ -8,13 +8,10 @@ import {
   listarRecorrenciasSchema,
 } from '../schemas/recorrencia.ts'
 
-// A regra (despesa_recorrente) é separada das ocorrências, que são despesas normais
-// (/despesas) com recorrencia_id. Pagar uma ocorrência usa POST /despesas/:id/pagamento.
 
 export async function recorrenciasRoutes(app: FastifyInstance) {
   app.addHook('preHandler', autenticar)
 
-  // Criar a regra e já gerar as ocorrências da janela de 60 dias
   app.post('/despesas-recorrentes', async (req, reply) => {
     const body = criarRecorrenciaSchema.parse(req.body)
 
@@ -38,7 +35,6 @@ export async function recorrenciasRoutes(app: FastifyInstance) {
     return data
   })
 
-  // Listar as regras (leitura direta; o RLS limita ao usuário)
   app.get('/despesas-recorrentes', async (req, reply) => {
     const f = listarRecorrenciasSchema.parse(req.query)
 
@@ -54,7 +50,6 @@ export async function recorrenciasRoutes(app: FastifyInstance) {
     return { itens: data, total: count ?? 0, limit: f.limit, offset: f.offset }
   })
 
-  // Detalhe da regra + suas ocorrências (sem as excluídas), por vencimento
   app.get('/despesas-recorrentes/:id', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
 
@@ -82,7 +77,6 @@ export async function recorrenciasRoutes(app: FastifyInstance) {
     return { ...data, ocorrencias: oc.data }
   })
 
-  // Editar a regra (vale para as pendentes futuras e as novas)
   app.patch('/despesas-recorrentes/:id', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
     const body = editarRecorrenciaSchema.parse(req.body)
@@ -100,7 +94,6 @@ export async function recorrenciasRoutes(app: FastifyInstance) {
     return data
   })
 
-  // Finalizar: nunca mais gera; exclui as pendentes futuras; pagas e histórico ficam
   app.post('/despesas-recorrentes/:id/finalizacao', async (req, reply) => {
     const { id } = idParamSchema.parse(req.params)
     const { data, error } = await req.db.rpc('finalizar_despesa_recorrente', { p_id: id })

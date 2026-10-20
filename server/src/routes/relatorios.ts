@@ -3,9 +3,6 @@ import { autenticar } from '../auth.ts'
 import { responderErroDb } from '../errors.ts'
 import { extratoSchema, relatorioSchema } from '../schemas/relatorio.ts'
 
-// Tudo aqui é SOMENTE LEITURA. As funções SQL rodam como o usuário (RLS), então
-// cada pessoa só vê os próprios dados.
-
 const relatorioPorCategoria =
   (tipo: 'receitas' | 'despesas') => async (req: FastifyRequest, reply: FastifyReply) => {
     const f = relatorioSchema.parse(req.query)
@@ -23,7 +20,6 @@ const relatorioPorCategoria =
 export async function relatoriosRoutes(app: FastifyInstance) {
   app.addHook('preHandler', autenticar)
 
-  // RF4: extrato do período (entradas e saídas pagas), com totais e saldo atual
   app.get('/extrato', async (req, reply) => {
     const f = extratoSchema.parse(req.query)
 
@@ -40,11 +36,9 @@ export async function relatoriosRoutes(app: FastifyInstance) {
     return data
   })
 
-  // RF5 e RF6: total por categoria, com percentual
   app.get('/relatorios/receitas', relatorioPorCategoria('receitas'))
   app.get('/relatorios/despesas', relatorioPorCategoria('despesas'))
 
-  // Tela inicial: saldo, entradas e saídas de 30 dias, alertas, movimentações recentes
   app.get('/dashboard', async (req, reply) => {
     const { data, error } = await req.db.rpc('dashboard')
     if (error) return responderErroDb(reply, error)

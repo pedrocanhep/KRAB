@@ -10,11 +10,14 @@ import { receitasRoutes } from './routes/receitas.ts'
 import { recorrenciasRoutes } from './routes/recorrencias.ts'
 import { resumoDesenvolvimentoRoutes } from './routes/resumo-desenvolvimento.ts'
 import { relatoriosRoutes } from './routes/relatorios.ts'
+import { perfilRoutes } from './routes/perfil.ts'
+
 
 export function buildApp() {
   const app = Fastify({ logger: true })
 
   app.register(cors, { origin: config.corsOrigin })
+  app.register(perfilRoutes)
 
   app.get('/health', async () => ({ status: 'ok' }))
   app.register(authRoutes)
