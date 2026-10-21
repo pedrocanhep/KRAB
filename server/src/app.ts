@@ -13,6 +13,7 @@ import { relatoriosRoutes } from './routes/relatorios.ts'
 import { perfilRoutes } from './routes/perfil.ts'
 
 
+
 export function buildApp() {
   const app = Fastify({ logger: true })
 
