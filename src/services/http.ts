@@ -46,7 +46,7 @@ export async function requisitar<T>(
   caminho: string,
   token: string,
   payload?: unknown,
-  metodo?: 'POST' | 'PATCH' | 'DELETE',
+  metodo?: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
 ): Promise<T> {
   const resposta = await fetch(`http://localhost:3333${caminho}`, {
     method: metodo ?? (payload === undefined ? 'GET' : 'POST'),

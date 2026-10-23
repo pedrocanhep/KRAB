@@ -7,6 +7,7 @@ import RecentActivities from '../components/dashboard/RecentActivities.vue'
 import SideDrawer from '../components/dashboard/SideDrawer.vue'
 import LancamentoForm from '../components/forms/LancamentoForm.vue'
 import RelatoriosView from './RelatoriosView.vue'
+import PerfilForm from '../components/forms/PerfilForm.vue'
 import ContaForm from '../components/forms/ContaForm.vue'
 import { obterDashboard, moeda, dataFinanceira, type Dashboard } from '../services/dashboard'
 import { mensagemErro } from '../services/http'
@@ -18,6 +19,18 @@ const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const cadastro = ref<Cadastro | null>(null)
+const perfilAberto = ref(false)
+const salvandoPerfil = ref(false)
+const formularioPerfil = ref<{ alterado: boolean } | null>(null)
+function fecharPerfil() {
+  if (salvandoPerfil.value) return
+  if (
+    formularioPerfil.value?.alterado &&
+    !window.confirm('Descartar as alterações do perfil e fechar?')
+  )
+    return
+  perfilAberto.value = false
+}
 const tituloRelatorio = computed(() =>
   route.path === '/extrato'
     ? 'Extrato financeiro'
@@ -104,7 +117,7 @@ onMounted(() => {
 
 <template>
   <div class="dashboard-shell">
-    <div :inert="cadastro !== null || tituloRelatorio !== null">
+    <div :inert="cadastro !== null || tituloRelatorio !== null || perfilAberto">
       <header class="dashboard-header">
         <img :src="logo" alt="KRAB — Keep Resources Always Balanced" />
         <div class="header-tools">
@@ -113,7 +126,6 @@ onMounted(() => {
             v-for="item in [
               { nome: 'sol', titulo: 'Tema' },
               { nome: 'config', titulo: 'Configurações' },
-              { nome: 'perfil', titulo: 'Perfil' },
             ]"
             :key="item.nome"
             :title="`${item.titulo} — em breve`"
@@ -121,6 +133,17 @@ onMounted(() => {
             :aria-label="`${item.titulo} — em breve`"
             ><Icon :name="item.nome"
           /></span>
+          <button
+            type="button"
+            class="header-profile"
+            aria-label="Meu perfil"
+            title="Meu perfil"
+            aria-haspopup="dialog"
+            :aria-expanded="perfilAberto"
+            @click="perfilAberto = true"
+          >
+            <Icon name="perfil" />
+          </button>
         </div>
       </header>
       <main class="dashboard-main">
@@ -333,6 +356,14 @@ onMounted(() => {
         </section>
       </main>
     </div>
+    <SideDrawer
+      v-if="perfilAberto"
+      titulo="Meu perfil"
+      subtitulo="Sua conta"
+      :ocupado="salvandoPerfil"
+      @fechar="fecharPerfil"
+      ><PerfilForm ref="formularioPerfil" @ocupado="salvandoPerfil = $event"
+    /></SideDrawer>
     <SideDrawer
       v-if="tituloRelatorio"
       :key="route.path"

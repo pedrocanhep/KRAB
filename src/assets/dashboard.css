@@ -636,3 +636,13 @@ body:has(.dashboard-shell) {
 .report-content .table-scroll table {
   min-width: 620px;
 }
+
+.header-profile {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
