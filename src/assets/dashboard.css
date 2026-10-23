@@ -611,3 +611,28 @@ body:has(.dashboard-shell) {
 .table-scroll td:last-child {
   white-space: nowrap;
 }
+
+.report-drawer .drawer-panel {
+  width: min(1060px, 100%);
+}
+.report-content {
+  min-width: 0;
+}
+.report-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+}
+.report-total {
+  line-height: 1.8;
+  margin-top: 20px !important;
+}
+.report-content caption {
+  text-align: left;
+  font-weight: 700;
+  padding: 12px;
+}
+.report-content .table-scroll table {
+  min-width: 620px;
+}

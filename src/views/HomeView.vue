@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import logo from '../../midia/logo-krab-png.png'
 import Icon from '../components/dashboard/DashboardIcon.vue'
 import RecentActivities from '../components/dashboard/RecentActivities.vue'
 import SideDrawer from '../components/dashboard/SideDrawer.vue'
 import LancamentoForm from '../components/forms/LancamentoForm.vue'
+import RelatoriosView from './RelatoriosView.vue'
 import ContaForm from '../components/forms/ContaForm.vue'
 import { obterDashboard, moeda, dataFinanceira, type Dashboard } from '../services/dashboard'
 import { mensagemErro } from '../services/http'
@@ -17,6 +18,18 @@ const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const cadastro = ref<Cadastro | null>(null)
+const tituloRelatorio = computed(() =>
+  route.path === '/extrato'
+    ? 'Extrato financeiro'
+    : route.path === '/relatorios/receitas'
+      ? 'Relatório de receitas'
+      : route.path === '/relatorios/despesas'
+        ? 'Relatório de despesas'
+        : null,
+)
+function fecharRelatorio() {
+  void router.push('/')
+}
 watch(
   () => route.query.cadastro,
   (valor) => {
@@ -91,7 +104,7 @@ onMounted(() => {
 
 <template>
   <div class="dashboard-shell">
-    <div :inert="cadastro !== null">
+    <div :inert="cadastro !== null || tituloRelatorio !== null">
       <header class="dashboard-header">
         <img :src="logo" alt="KRAB — Keep Resources Always Balanced" />
         <div class="header-tools">
@@ -307,19 +320,29 @@ onMounted(() => {
                 <span class="icon-box solid"><Icon /></span>
                 <h3>Relatório de receitas</h3>
               </div>
-              <p>Acompanhe todas as entradas do negócio</p>
+              <p>Acompanhe suas entradas</p>
             </RouterLink>
             <RouterLink to="/relatorios/despesas" class="report-card despesa">
               <div>
                 <span class="icon-box solid"><Icon name="saida" /></span>
                 <h3>Relatório de despesas</h3>
               </div>
-              <p>Visualize os gastos e saídas do período</p>
+              <p>Analise seus gastos</p>
             </RouterLink>
           </div>
         </section>
       </main>
     </div>
+    <SideDrawer
+      v-if="tituloRelatorio"
+      :key="route.path"
+      class="report-drawer"
+      :titulo="tituloRelatorio"
+      subtitulo="Relatórios"
+      :ocupado="false"
+      @fechar="fecharRelatorio"
+      ><RelatoriosView
+    /></SideDrawer>
     <Transition name="drawer"
       ><SideDrawer
         v-if="cadastro"

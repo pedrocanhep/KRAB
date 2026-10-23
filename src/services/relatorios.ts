@@ -2,6 +2,7 @@ import { requisitar } from './http'
 import type { Movimento } from './dashboard'
 
 export interface Extrato {
+  periodo: { de: string; ate: string }
   saldo_atual: number
   totais: { entradas: number; saidas: number; saldo_periodo: number; quantidade: number }
   itens: (Movimento & { categoria: string; conta_nome: string })[]

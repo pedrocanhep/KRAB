@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import Icon from './DashboardIcon.vue'
 
-defineProps<{ titulo: string; ocupado: boolean }>()
+defineProps<{ titulo: string; ocupado: boolean; subtitulo?: string }>()
 const emit = defineEmits<{ fechar: [] }>()
 const painel = ref<HTMLElement>()
 const focoAnterior = document.activeElement as HTMLElement | null
@@ -51,7 +51,7 @@ onUnmounted(() => {
     >
       <header>
         <div>
-          <p>Novo cadastro</p>
+          <p>{{ subtitulo ?? 'Novo cadastro' }}</p>
           <h2 id="drawer-titulo">{{ titulo }}</h2>
         </div>
         <button
