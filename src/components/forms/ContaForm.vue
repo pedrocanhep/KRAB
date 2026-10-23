@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { criarConta, type CriarConta } from '../../services/contas'
+import { criarConta, editarConta, type CriarConta, type Conta } from '../../services/contas'
 import { mensagemErro } from '../../services/http'
 import { useAuthStore } from '../../stores/auth'
 
+const props = defineProps<{ registro?: Conta }>()
 const emit = defineEmits<{ salvo: []; ocupado: [valor: boolean] }>()
 const auth = useAuthStore()
-const nome = ref('')
-const tipo = ref<CriarConta['tipo']>('corrente')
+const nome = ref(props.registro?.nome ?? '')
+const tipo = ref<CriarConta['tipo']>(props.registro?.tipo ?? 'corrente')
 const saldo = ref('0,00')
 const enviando = ref(false)
 const erro = ref('')
@@ -28,14 +29,23 @@ async function salvar() {
     const decimal = saldo.value.trim().replace(',', '.')
     if (!/^-?\d{1,12}(\.\d{1,2})?$/.test(decimal))
       throw new Error('Informe um saldo com até duas casas decimais.')
-    await criarConta(
-      { nome: nome.value.trim(), tipo: tipo.value, saldo_inicial: decimal },
-      auth.obterToken(),
-    )
-    sucesso.value = 'Conta cadastrada com sucesso. Ela já está disponível para novos lançamentos.'
-    nome.value = ''
-    tipo.value = 'corrente'
-    saldo.value = '0,00'
+    if (props.registro) {
+      await editarConta(
+        props.registro.id,
+        { nome: nome.value.trim(), tipo: tipo.value },
+        auth.obterToken(),
+      )
+      sucesso.value = 'Conta atualizada com sucesso.'
+    } else {
+      await criarConta(
+        { nome: nome.value.trim(), tipo: tipo.value, saldo_inicial: decimal },
+        auth.obterToken(),
+      )
+      sucesso.value = 'Conta cadastrada com sucesso.'
+      nome.value = ''
+      tipo.value = 'corrente'
+      saldo.value = '0,00'
+    }
     emit('salvo')
   } catch (falha) {
     erro.value = mensagemErro(falha)
@@ -65,9 +75,11 @@ async function salvar() {
           <option value="outro">Outro</option>
         </select></label
       >
-      <label>Saldo inicial (R$)<input v-model="saldo" required inputmode="decimal" /></label>
+      <label v-if="!registro"
+        >Saldo inicial (R$)<input v-model="saldo" required inputmode="decimal"
+      /></label>
       <button class="submit-button" :disabled="enviando || !auth.accessToken">
-        {{ enviando ? 'Salvando…' : 'Cadastrar banco' }}
+        {{ enviando ? 'Salvando…' : registro ? 'Salvar alterações' : 'Cadastrar conta' }}
       </button>
     </fieldset>
     <p v-if="erro" class="form-error" role="alert">{{ erro }}</p>

@@ -42,9 +42,14 @@ export async function verificarResposta(resposta: Response): Promise<void> {
 }
 
 // Todas as operações financeiras passam pela API e pelo token da sessão em memória.
-export async function requisitar<T>(caminho: string, token: string, payload?: unknown): Promise<T> {
+export async function requisitar<T>(
+  caminho: string,
+  token: string,
+  payload?: unknown,
+  metodo?: 'POST' | 'PATCH' | 'DELETE',
+): Promise<T> {
   const resposta = await fetch(`http://localhost:3333${caminho}`, {
-    method: payload === undefined ? 'GET' : 'POST',
+    method: metodo ?? (payload === undefined ? 'GET' : 'POST'),
     headers: {
       Authorization: `Bearer ${token}`,
       ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }),

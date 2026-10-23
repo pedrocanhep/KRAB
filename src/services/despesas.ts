@@ -1,7 +1,7 @@
-import { verificarResposta } from './http'
+import { verificarResposta, requisitar } from './http'
 
 // Contrato enviado ao POST: o backend exige valor decimal como texto, não como número.
-interface CriarDespesaPayload {
+export interface CriarDespesaPayload {
   conta_id: string
   descricao: string
   valor: string
@@ -12,6 +12,7 @@ interface CriarDespesaPayload {
 // Campos da resposta que a tabela utiliza; o backend também retorna outros campos.
 export interface Despesa {
   id: string
+  conta_id: string
   descricao: string
   valor: number
   data_vencimento: string
@@ -69,10 +70,24 @@ export async function criarDespesa(payload: CriarDespesaPayload, token: string):
 
 // Consulta os registros persistidos, sem aproveitar dados locais do cadastro.
 // O token identifica o usuário; sem filtros, a API retorna até 20 despesas ativas.
-export async function listarDespesas(token: string): Promise<ListagemDespesas> {
-  const resposta = await fetch('http://localhost:3333/despesas', {
+export async function listarDespesas(token: string, offset = 0): Promise<ListagemDespesas> {
+  const resposta = await fetch(`http://localhost:3333/despesas?limit=100&offset=${offset}`, {
     headers: { Authorization: `Bearer ${token.trim()}` },
   })
   await verificarResposta(resposta)
   return (await resposta.json()) as ListagemDespesas
+}
+
+export function editarDespesa(
+  id: string,
+  payload: Omit<CriarDespesaPayload, 'conta_id'>,
+  token: string,
+) {
+  return requisitar(`/despesas/${id}`, token, payload, 'PATCH')
+}
+export function excluirDespesa(id: string, token: string) {
+  return requisitar(`/despesas/${id}`, token, undefined, 'DELETE')
+}
+export function pagarDespesa(id: string, token: string) {
+  return requisitar(`/despesas/${id}/pagamento`, token, {})
 }

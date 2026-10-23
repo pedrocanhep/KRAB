@@ -1,114 +1,91 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import logo from '../../midia/logo-krab-png.png'
 import Icon from '../components/dashboard/DashboardIcon.vue'
 import RecentActivities from '../components/dashboard/RecentActivities.vue'
 import SideDrawer from '../components/dashboard/SideDrawer.vue'
 import LancamentoForm from '../components/forms/LancamentoForm.vue'
 import ContaForm from '../components/forms/ContaForm.vue'
-import { obterAtividades, type Atividade } from '../services/atividades'
-import {
-  obterResumoDesenvolvimento,
-  type ResumoDesenvolvimento,
-} from '../services/resumo-desenvolvimento'
-import { moeda } from '../services/dashboard'
+import { obterDashboard, moeda, dataFinanceira, type Dashboard } from '../services/dashboard'
 import { mensagemErro } from '../services/http'
 import { useAuthStore } from '../stores/auth'
 import '../assets/dashboard.css'
 
 type Cadastro = 'receita' | 'despesa' | 'banco'
 const auth = useAuthStore()
-const atividades = ref<Atividade[]>([])
-const carregando = ref(false)
-const erro = ref('')
+const route = useRoute()
+const router = useRouter()
 const cadastro = ref<Cadastro | null>(null)
+watch(
+  () => route.query.cadastro,
+  (valor) => {
+    cadastro.value = valor === 'receita' || valor === 'despesa' || valor === 'banco' ? valor : null
+  },
+  { immediate: true },
+)
 const ocupado = ref(false)
 const formulario = ref<{ alterado: boolean; enviando: boolean } | null>(null)
 const atalhos = [
   { tipo: 'receita' as const, icone: 'mais', descricao: 'Registrar entrada, venda ou repasse' },
   { tipo: 'despesa' as const, icone: 'menos', descricao: 'Registrar saída, conta ou gasto' },
-  { tipo: 'banco' as const, icone: 'banco', descricao: 'Adicionar conta, cartão ou instituição' },
+  { tipo: 'banco' as const, icone: 'banco', descricao: 'Adicionar conta bancária ou caixa' },
 ]
-// Atividades e os três cards principais usam a API. Resumo rápido, alertas
-// e relatórios continuam demonstrativos nesta etapa.
+const resumo = ref<Dashboard | null>(null)
+const carregandoResumo = ref(true)
+const erroResumo = ref('')
 let atualizarNovamente = false
-async function carregarAtividades() {
-  // Se um POST terminar durante uma leitura anterior, repetimos o GET ao final
-  // para não perder a atualização. Não inserimos cadastros apenas no estado local.
-  if (carregando.value) {
+async function carregarResumo() {
+  if (ocupandoLeitura) {
     atualizarNovamente = true
     return
   }
-  carregando.value = true
-  erro.value = ''
-  try {
-    const resposta = await obterAtividades(auth.obterToken())
-    atividades.value = resposta.itens
-  } catch (falha) {
-    atividades.value = []
-    erro.value = mensagemErro(falha)
-  } finally {
-    carregando.value = false
-    if (atualizarNovamente) {
-      atualizarNovamente = false
-      void carregarAtividades()
-    }
-  }
-}
-
-// Regra TEMPORÁRIA de desenvolvimento: todas as receitas e despesas ativas,
-// sem separar contas ou status. TODO: migrar para o saldo financeiro oficial.
-const resumo = ref<ResumoDesenvolvimento | null>(null)
-const carregandoResumo = ref(false)
-const erroResumo = ref('')
-let atualizarResumoNovamente = false
-
-async function carregarResumoDesenvolvimento() {
-  if (carregandoResumo.value) {
-    atualizarResumoNovamente = true
-    return
-  }
+  ocupandoLeitura = true
   carregandoResumo.value = true
   erroResumo.value = ''
   try {
-    resumo.value = await obterResumoDesenvolvimento(auth.obterToken())
+    resumo.value = await obterDashboard(auth.obterToken())
   } catch (falha) {
-    // Não mostramos números antigos como se a atualização tivesse funcionado.
     resumo.value = null
     erroResumo.value = mensagemErro(falha)
   } finally {
+    ocupandoLeitura = false
     carregandoResumo.value = false
-    if (atualizarResumoNovamente) {
-      atualizarResumoNovamente = false
-      void carregarResumoDesenvolvimento()
+    if (atualizarNovamente) {
+      atualizarNovamente = false
+      void carregarResumo()
     }
   }
 }
-
-function exibirTotal(campo: keyof ResumoDesenvolvimento): string {
+let ocupandoLeitura = false
+function exibirTotal(campo: 'saldo' | 'entradas' | 'saidas'): string {
   if (carregandoResumo.value) return 'Carregando…'
-  return resumo.value ? moeda(resumo.value[campo]) : 'Indisponível'
+  if (!resumo.value) return 'Indisponível'
+  return moeda(
+    campo === 'saldo'
+      ? resumo.value.saldo_total
+      : campo === 'entradas'
+        ? resumo.value.entradas_30d.total
+        : resumo.value.saidas_30d.total,
+  )
 }
-
-// POST confirmado dispara novas leituras independentes: erro no resumo não
-// apaga o sucesso do formulário. Conta continua atualizando apenas atividades.
+function sair() {
+  auth.invalidarToken()
+  void router.push('/login')
+}
 function aposSalvarLancamento() {
-  void carregarAtividades()
-  void carregarResumoDesenvolvimento()
+  void carregarResumo()
 }
-
 // Fechar não muda a rota. Impedimos fechamento durante o POST e confirmamos
 // descarte quando existem campos preenchidos; erros preservam o formulário.
 function fecharDrawer() {
   if (ocupado.value) return
   if (formulario.value?.alterado && !window.confirm('Descartar os dados preenchidos e fechar?'))
     return
-  cadastro.value = null
+  void router.replace({ query: {} })
 }
 onMounted(() => {
-  void carregarAtividades()
-  void carregarResumoDesenvolvimento()
+  void carregarResumo()
 })
 </script>
 
@@ -118,6 +95,7 @@ onMounted(() => {
       <header class="dashboard-header">
         <img :src="logo" alt="KRAB — Keep Resources Always Balanced" />
         <div class="header-tools">
+          <button class="retry" @click="sair">Sair</button>
           <span
             v-for="item in [
               { nome: 'sol', titulo: 'Tema' },
@@ -133,21 +111,22 @@ onMounted(() => {
         </div>
       </header>
       <main class="dashboard-main">
-        <section
-          class="summary-grid"
-          aria-label="Resumo geral provisório de desenvolvimento"
-          :aria-busy="carregandoResumo"
-        >
+        <nav class="report-navigation">
+          <RouterLink to="/receitas">Receitas</RouterLink
+          ><RouterLink to="/despesas">Despesas</RouterLink
+          ><RouterLink to="/contas">Contas e caixas</RouterLink>
+        </nav>
+        <section class="summary-grid" aria-label="Resumo financeiro" :aria-busy="carregandoResumo">
           <article class="panel balance">
             <p class="greeting">Olá, boas-vindas</p>
             <p class="muted">Saldo atual</p>
             <div class="balance-value" :class="{ 'summary-feedback': carregandoResumo || !resumo }">
               {{ exibirTotal('saldo') }}
             </div>
-            <p class="muted">Provisório: entradas menos despesas cadastradas</p>
+            <p class="muted">Saldo disponível nas contas ativas</p>
             <div v-if="resumo && !carregandoResumo" class="balance-tags">
-              <span>{{ moeda(resumo.entradas) }} em receitas</span
-              ><span>{{ moeda(resumo.saidas) }} em despesas</span>
+              <span>{{ moeda(resumo.entradas_30d.total) }} em receitas</span
+              ><span>{{ moeda(resumo.saidas_30d.total) }} em despesas</span>
             </div>
           </article>
           <article class="panel summary receita">
@@ -158,7 +137,10 @@ onMounted(() => {
             <strong :class="{ 'summary-feedback': carregandoResumo || !resumo }">{{
               exibirTotal('entradas')
             }}</strong>
-            <p>Total geral provisório de receitas cadastradas</p>
+            <p>
+              {{ resumo && !carregandoResumo ? resumo.entradas_30d.quantidade : '—' }} receitas nos
+              últimos 30 dias
+            </p>
           </article>
           <article class="panel summary despesa">
             <div class="summary-heading">
@@ -168,12 +150,15 @@ onMounted(() => {
             <strong :class="{ 'summary-feedback': carregandoResumo || !resumo }">{{
               exibirTotal('saidas')
             }}</strong>
-            <p>Total geral provisório de despesas pendentes e pagas</p>
+            <p>
+              {{ resumo && !carregandoResumo ? resumo.saidas_30d.quantidade : '—' }} despesas pagas
+              nos últimos 30 dias
+            </p>
           </article>
         </section>
         <div v-if="erroResumo" class="summary-error" role="alert">
           <p>Não foi possível atualizar os totais. {{ erroResumo }}</p>
-          <button v-if="auth.accessToken" class="retry" @click="carregarResumoDesenvolvimento">
+          <button v-if="auth.accessToken" class="retry" @click="carregarResumo">
             Tentar novamente
           </button>
           <RouterLink v-else to="/login">Entrar novamente</RouterLink>
@@ -181,35 +166,40 @@ onMounted(() => {
         <div class="dashboard-columns">
           <div class="column">
             <RecentActivities
-              :itens="atividades"
-              :carregando="carregando"
-              :erro="erro"
+              :itens="resumo?.movimentacoes_recentes ?? []"
+              :carregando="carregandoResumo"
+              :erro="erroResumo"
               :autenticado="Boolean(auth.accessToken)"
-              @tentar="carregarAtividades"
+              @tentar="carregarResumo"
             />
-            <section class="panel alerts">
+            <section class="panel alerts" :aria-busy="carregandoResumo">
               <div class="section-heading">
                 <div>
                   <h2>Alertas importantes</h2>
-                  <p>Ações que precisam de atenção</p>
+                  <p>Despesas vencidas ou com vencimento em até sete dias</p>
                 </div>
-                <span class="badge danger">2 pendências</span>
               </div>
-              <div class="alert-row despesa">
+              <p v-if="carregandoResumo" role="status">Carregando alertas…</p>
+              <p v-else-if="!resumo">Alertas indisponíveis.</p>
+              <p v-else-if="!resumo.alertas.length">Nenhuma despesa precisa de atenção agora.</p>
+              <div
+                v-for="alerta in resumo?.alertas ?? []"
+                v-show="!carregandoResumo"
+                :key="alerta.id"
+                class="alert-row despesa"
+              >
                 <span class="icon-box solid"><Icon name="alerta" /></span>
                 <div>
-                  <strong>Conta de água vence hoje</strong>
-                  <p>Despesa agendada para pagamento</p>
+                  <strong>{{ alerta.descricao }}</strong>
+                  <p>{{ moeda(alerta.valor) }} • {{ dataFinanceira(alerta.data_vencimento) }}</p>
                 </div>
-                <small>Hoje</small>
-              </div>
-              <div class="alert-row banco">
-                <span class="icon-box solid"><Icon name="cartao" /></span>
-                <div>
-                  <strong>Cartão de crédito precisa ser atualizado</strong>
-                  <p>Revise os dados do cartão principal</p>
-                </div>
-                <small>Amanhã</small>
+                <small>{{
+                  alerta.situacao === 'vencida'
+                    ? 'Vencida'
+                    : alerta.situacao === 'hoje'
+                      ? 'Vence hoje'
+                      : 'Em breve'
+                }}</small>
               </div>
             </section>
           </div>
@@ -221,19 +211,19 @@ onMounted(() => {
                   <p>Ações rápidas para o seu dia a dia</p>
                 </div>
               </div>
-              <button
+              <RouterLink
                 v-for="atalho in atalhos"
                 :key="atalho.tipo"
                 class="quick-action"
                 :class="atalho.tipo"
-                @click="cadastro = atalho.tipo"
+                :to="{ query: { cadastro: atalho.tipo } }"
               >
                 <span class="icon-box solid"><Icon :name="atalho.icone" /></span
                 ><span
                   ><strong>Cadastrar {{ atalho.tipo }}</strong
                   ><small>{{ atalho.descricao }}</small></span
                 >
-              </button>
+              </RouterLink>
             </section>
             <section class="panel quick-summary">
               <div class="section-heading">
@@ -245,19 +235,53 @@ onMounted(() => {
               <dl>
                 <div>
                   <dt>Receitas do mês</dt>
-                  <dd class="positive">R$ 1.240,00</dd>
+                  <dd class="positive">
+                    {{
+                      carregandoResumo
+                        ? 'Carregando…'
+                        : resumo
+                          ? moeda(resumo.mes.receitas)
+                          : 'Indisponível'
+                    }}
+                  </dd>
                 </div>
                 <div>
                   <dt>Despesas do mês</dt>
-                  <dd class="negative">R$ 760,00</dd>
+                  <dd class="negative">
+                    {{
+                      carregandoResumo
+                        ? 'Carregando…'
+                        : resumo
+                          ? moeda(resumo.mes.despesas)
+                          : 'Indisponível'
+                    }}
+                  </dd>
                 </div>
                 <div>
                   <dt>Bancos cadastrados</dt>
-                  <dd class="blue">2 contas</dd>
+                  <dd class="blue">
+                    {{
+                      carregandoResumo
+                        ? 'Carregando…'
+                        : resumo
+                          ? `${resumo.contas_ativas} contas`
+                          : 'Indisponível'
+                    }}
+                  </dd>
                 </div>
                 <div>
                   <dt>Próximo vencimento</dt>
-                  <dd class="negative">Hoje</dd>
+                  <dd class="negative">
+                    {{
+                      carregandoResumo
+                        ? 'Carregando…'
+                        : !resumo
+                          ? 'Indisponível'
+                          : resumo.proximo_vencimento
+                            ? dataFinanceira(resumo.proximo_vencimento.data_vencimento)
+                            : 'Nenhum previsto'
+                    }}
+                  </dd>
                 </div>
               </dl>
             </section>
@@ -271,33 +295,29 @@ onMounted(() => {
             </div>
           </div>
           <div class="reports-grid">
-            <article class="report-card">
+            <RouterLink to="/extrato" class="report-card">
               <div>
                 <span class="icon-box"><Icon name="documento" /></span>
                 <h3>Extrato financeiro</h3>
               </div>
               <p>Veja entradas e saídas por período</p>
-            </article>
-            <article class="report-card receita">
+            </RouterLink>
+            <RouterLink to="/relatorios/receitas" class="report-card receita">
               <div>
                 <span class="icon-box solid"><Icon /></span>
                 <h3>Relatório de receitas</h3>
               </div>
               <p>Acompanhe todas as entradas do negócio</p>
-            </article>
-            <article class="report-card despesa">
+            </RouterLink>
+            <RouterLink to="/relatorios/despesas" class="report-card despesa">
               <div>
                 <span class="icon-box solid"><Icon name="saida" /></span>
                 <h3>Relatório de despesas</h3>
               </div>
               <p>Visualize os gastos e saídas do período</p>
-            </article>
+            </RouterLink>
           </div>
         </section>
-        <p class="demo-note">
-          Os três cards principais usam totais provisórios de desenvolvimento. Resumo rápido,
-          alertas e relatórios exibem dados de demonstração. As atividades recentes são reais.
-        </p>
       </main>
     </div>
     <Transition name="drawer"
@@ -311,7 +331,7 @@ onMounted(() => {
           v-if="cadastro === 'banco'"
           ref="formulario"
           @ocupado="ocupado = $event"
-          @salvo="carregarAtividades" /><LancamentoForm
+          @salvo="aposSalvarLancamento" /><LancamentoForm
           v-else
           ref="formulario"
           :tipo="cadastro"

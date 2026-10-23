@@ -9,7 +9,20 @@ export interface Movimento {
   created_at: string
 }
 
-interface Dashboard {
+export interface Dashboard {
+  saldo_total: number
+  contas_ativas: number
+  entradas_30d: { total: number; quantidade: number }
+  saidas_30d: { total: number; quantidade: number }
+  mes: { receitas: number; despesas: number }
+  proximo_vencimento: { descricao: string; data_vencimento: string } | null
+  alertas: {
+    id: string
+    descricao: string
+    valor: number
+    data_vencimento: string
+    situacao: 'vencida' | 'hoje' | 'proxima'
+  }[]
   movimentacoes_recentes: Movimento[]
 }
 
