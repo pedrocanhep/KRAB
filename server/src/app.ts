@@ -11,6 +11,7 @@ import { recorrenciasRoutes } from './routes/recorrencias.ts'
 import { resumoDesenvolvimentoRoutes } from './routes/resumo-desenvolvimento.ts'
 import { relatoriosRoutes } from './routes/relatorios.ts'
 import { perfilRoutes } from './routes/perfil.ts'
+import { movimentacoesRoutes } from './routes/movimentacoes.ts'
 
 
 
@@ -19,6 +20,7 @@ export function buildApp() {
 
   app.register(cors, { origin: config.corsOrigin })
   app.register(perfilRoutes)
+  app.register(movimentacoesRoutes)
 
   app.get('/health', async () => ({ status: 'ok' }))
   app.register(authRoutes)
