@@ -18,6 +18,33 @@ test('aceita uma receita válida', () => {
   assert.equal(criarReceitaSchema.safeParse(base).success, true)
 })
 
+// alteração Pedro: não havia cobertura de hoje e passado no fuso financeiro; agora criação e edição são testadas na virada UTC.
+test('criação e edição aceitam hoje e passado no fuso de São Paulo', (t) => {
+  // Em UTC já é dia 9; em São Paulo ainda é dia 8.
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-09T01:00:00Z') })
+  for (const data_recebimento of ['2026-11-08', '2026-11-07']) {
+    assert.equal(criarReceitaSchema.safeParse({ ...base, data_recebimento }).success, true)
+    assert.equal(editarReceitaSchema.safeParse({ data_recebimento }).success, true)
+  }
+})
+
+// alteração Pedro: a criação futura não tinha teste de rejeição; agora o teste exige recusa conforme a data de São Paulo.
+test('criação rejeita recebimento futuro mesmo quando a data UTC já virou', (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-09T01:00:00Z') })
+  const resultado = criarReceitaSchema.safeParse({ ...base, data_recebimento: '2026-11-09' })
+  assert.equal(resultado.success, false)
+  if (!resultado.success) assert.match(resultado.error.issues[0]!.message, /não pode ser futura/)
+})
+
+// alteração Pedro: não havia teste do limite temporal na edição; agora verifica rejeição futura e liberação após a virada do dia local.
+test('edição rejeita recebimento futuro e permite editar outros campos', (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-09T01:00:00Z') })
+  assert.equal(editarReceitaSchema.safeParse({ data_recebimento: '2026-11-09' }).success, false)
+  assert.equal(editarReceitaSchema.safeParse({ descricao: 'Descrição corrigida' }).success, true)
+  t.mock.timers.tick(2 * 60 * 60 * 1000)
+  assert.equal(editarReceitaSchema.safeParse({ data_recebimento: '2026-11-09' }).success, true)
+})
+
 test('rejeita valor zero, negativo, com 3 casas ou número (não string)', () => {
   for (const valor of ['0', '0.00', '-5', '10.999', 'abc', 1200]) {
     assert.equal(criarReceitaSchema.safeParse({ ...base, valor }).success, false, String(valor))
@@ -46,6 +73,12 @@ test('edição: exige ao menos um campo e não permite trocar conta_id', () => {
 })
 
 test('listagem: data inicial posterior à final é inválida', () => {
-  assert.equal(listarReceitasSchema.safeParse({ de: '2026-10-10', ate: '2026-10-01' }).success, false)
-  assert.equal(listarReceitasSchema.safeParse({ de: '2026-10-01', ate: '2026-10-10' }).success, true)
+  assert.equal(
+    listarReceitasSchema.safeParse({ de: '2026-10-10', ate: '2026-10-01' }).success,
+    false,
+  )
+  assert.equal(
+    listarReceitasSchema.safeParse({ de: '2026-10-01', ate: '2026-10-10' }).success,
+    true,
+  )
 })

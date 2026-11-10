@@ -1,5 +1,5 @@
 import { z } from 'zod'
-
+import { hojeSaoPaulo } from './relatorio.ts'
 
 const valor = z
   .string()
@@ -16,23 +16,29 @@ const data = z
 
 const descricao = z.string().trim().min(1, 'Descrição obrigatória.').max(100)
 const categoria = z.string().trim().min(1, 'Categoria obrigatória.').max(50)
+// alteração Pedro: a data era validada apenas quanto ao formato e existência; agora também não pode superar hoje em São Paulo.
+const dataRecebimento = data.refine(
+  (v) => v <= hojeSaoPaulo(),
+  'A data de recebimento não pode ser futura.',
+)
 
 export const criarReceitaSchema = z
   .object({
     conta_id: z.string().uuid(),
     descricao,
     valor,
-    data_recebimento: data,
+    // alteração Pedro: a criação aceitava recebimento futuro; agora usa a validação de data não futura.
+    data_recebimento: dataRecebimento,
     categoria,
   })
   .strict()
-
 
 export const editarReceitaSchema = z
   .object({
     descricao: descricao.optional(),
     valor: valor.optional(),
-    data_recebimento: data.optional(),
+    // alteração Pedro: a edição aceitava recebimento futuro; agora aplica a mesma validação da criação.
+    data_recebimento: dataRecebimento.optional(),
     categoria: categoria.optional(),
   })
   .strict()
@@ -54,8 +60,10 @@ export const listarReceitasSchema = z
     path: ['de'],
   })
 
-
 export const chaveIdempotenciaSchema = z
   .string()
-  .regex(/^[A-Za-z0-9_-]{8,100}$/, 'Idempotency-Key deve ter de 8 a 100 caracteres (letras, números, - e _).')
+  .regex(
+    /^[A-Za-z0-9_-]{8,100}$/,
+    'Idempotency-Key deve ter de 8 a 100 caracteres (letras, números, - e _).',
+  )
   .optional()

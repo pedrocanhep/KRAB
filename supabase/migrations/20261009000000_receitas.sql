@@ -38,7 +38,7 @@ create table public.movimentacao_conta (
 create index mov_origem_idx on public.movimentacao_conta (origem_tipo, origem_id);
 create index mov_conta_idx on public.movimentacao_conta (conta_id);
 
--
+-- alteração Pedro: havia um hífen isolado inválido antes desta tabela; a linha foi removida para permitir a execução da migration.
 create table public.idempotencia (
   user_id uuid not null references auth.users(id),
   chave text not null,

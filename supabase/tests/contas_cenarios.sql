@@ -60,12 +60,15 @@ c1 := public.criar_conta('TESTE Banco A', 'corrente', 500, '260', '1234', '56789
     assert sqlerrm like '%conta_com_pendencias%', '7: erro inesperado: ' || sqlerrm;
   end;
 
+  -- alteração Pedro: o cenário excluía a conta com saldo 300; agora quita 500 e verifica exclusão com saldo zero.
+  -- Quita o valor total do saldo antes de excluir.
+  perform public.editar_despesa(d1, null, 500);
   perform public.pagar_despesa(d1);
   c1 := public.excluir_conta(c1.id);
   assert c1.deleted_at is not null, '8a: conta deveria estar excluída';
   c1 := public.excluir_conta(c1.id);
   select saldo_disponivel into s from public.conta where id = c1.id;
-  assert s = 300, '8b: saldo deveria continuar 300 (500 - 200), deu ' || s;
+  assert s = 0, '8b: saldo deveria continuar zero (500 - 500), deu ' || s;
 
   -- 9) conta excluída: não edita e não aceita novos lançamentos
   begin
@@ -95,7 +98,8 @@ c1 := public.criar_conta('TESTE Banco A', 'corrente', 500, '260', '1234', '56789
   end;
 
   select coalesce(sum(valor), 0) into s from public.movimentacao_conta where conta_id = c1.id;
-  assert s = 300, '12: soma do ledger deveria ser 300, deu ' || s;
+  -- alteração Pedro: a soma esperada do ledger era 300; agora deve ser zero após a quitação necessária para excluir a conta.
+  assert s = 0, '12: soma do ledger deveria ser zero, deu ' || s;
 
   raise exception 'OK: todos os 12 cenários passaram (alterações revertidas de propósito)';
 end $$;

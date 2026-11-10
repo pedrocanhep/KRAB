@@ -61,11 +61,15 @@ begin
   assert (public.movimentacoes(c.id, null, hoje - 1)->>'total')::int = 0, '6c: nada antes de hoje';
 
   -- 7) conta excluída: some da listagem geral, mas aparece quando pedida pelo id
+  -- alteração Pedro: o cenário excluía a conta com saldo 1450; agora registra e paga uma despesa para zerar o saldo antes da exclusão.
+  r := public.criar_despesa(c.id, 'Zerar saldo', 1450, hoje, 'Teste');
+  perform public.pagar_despesa((r->'despesa'->>'id')::uuid);
   perform public.excluir_conta(c.id);
   j := public.movimentacoes();
   select count(*) into n from jsonb_array_elements(j->'itens') i where i->>'conta_id' = c.id::text;
   assert n = 0, '7a: conta excluída não deveria aparecer na listagem geral';
-  assert (public.movimentacoes(c.id)->>'total')::int = 6, '7b: pedida pelo id, o histórico continua';
+  -- alteração Pedro: o histórico tinha seis eventos; agora inclui o sétimo evento de pagamento usado para zerar a conta.
+  assert (public.movimentacoes(c.id)->>'total')::int = 7, '7b: pedida pelo id, o histórico continua';
 
   raise exception 'OK: todos os cenários de movimentações passaram (alterações revertidas de propósito)';
 end $$;

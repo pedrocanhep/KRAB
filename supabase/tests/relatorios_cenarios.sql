@@ -2,7 +2,8 @@
 -- ao final levanta uma exceção de propósito, que desfaz TUDO.
 --   * Se passar:  aparece um "erro" começando com  OK: ...
 --   * Se falhar:  aparece a mensagem do cenário que falhou.
--- Usa datas de JANEIRO DE 2030 para não se misturar com seus dados reais.
+-- alteração Pedro: os cenários e filtros usavam datas futuras de 2030; agora usam 2020 para respeitar o bloqueio sem alterar os resultados esperados.
+-- Usa datas de JANEIRO DE 2020 para não se misturar com seus dados reais.
 do $$
 declare
   u uuid := '74a9bd78-fcb3-4274-a2f4-27322939be7f';  -- UID do seu usuário de teste
@@ -20,26 +21,26 @@ begin
   c1 := public.criar_conta('TESTE Rel A', 'corrente', 1000);
   c2 := public.criar_conta('TESTE Rel B', 'caixa', 0);
 
-  perform public.criar_receita(c1.id, 'Salário', 1200, '2030-01-10', 'Salário');
-  perform public.criar_receita(c1.id, 'Freela', 300, '2030-01-12', 'Serviços');
-  perform public.criar_receita(c2.id, 'Venda', 100, '2030-01-20', 'Vendas');
-  perform public.criar_receita(c1.id, 'Fora do período', 999, '2030-03-01', 'Vendas');
+  perform public.criar_receita(c1.id, 'Salário', 1200, '2020-01-10', 'Salário');
+  perform public.criar_receita(c1.id, 'Freela', 300, '2020-01-12', 'Serviços');
+  perform public.criar_receita(c2.id, 'Venda', 100, '2020-01-20', 'Vendas');
+  perform public.criar_receita(c1.id, 'Fora do período', 999, '2020-03-01', 'Vendas');
 
-  r := public.criar_despesa(c1.id, 'Mercado', 240, '2030-01-05', 'Alimentação');
+  r := public.criar_despesa(c1.id, 'Mercado', 240, '2020-01-05', 'Alimentação');
   d1 := (r->'despesa'->>'id')::uuid;  perform public.pagar_despesa(d1);
-  r := public.criar_despesa(c1.id, 'Aluguel', 500, '2030-01-06', 'Moradia');
+  r := public.criar_despesa(c1.id, 'Aluguel', 500, '2020-01-06', 'Moradia');
   d2 := (r->'despesa'->>'id')::uuid;  perform public.pagar_despesa(d2);
   -- pagamento não pode ser futuro; ajustamos a data direto (só neste teste, depois desfeito)
-  update public.despesa set data_pagamento = '2030-01-11' where id = d1;
-  update public.despesa set data_pagamento = '2030-01-13' where id = d2;
+  update public.despesa set data_pagamento = '2020-01-11' where id = d1;
+  update public.despesa set data_pagamento = '2020-01-13' where id = d2;
 
-  r := public.criar_despesa(c1.id, 'Água', 150, '2030-01-15', 'Contas');     d3 := (r->'despesa'->>'id')::uuid;
-  r := public.criar_despesa(c1.id, 'Internet', 80, '2030-01-10', 'Contas');  d4 := (r->'despesa'->>'id')::uuid;
-  r := public.criar_despesa(c1.id, 'Luz', 90, '2030-01-18', 'Contas');       d5 := (r->'despesa'->>'id')::uuid;
-  r := public.criar_despesa(c1.id, 'Seguro', 70, '2030-03-01', 'Contas');    d6 := (r->'despesa'->>'id')::uuid;
+  r := public.criar_despesa(c1.id, 'Água', 150, '2020-01-15', 'Contas');     d3 := (r->'despesa'->>'id')::uuid;
+  r := public.criar_despesa(c1.id, 'Internet', 80, '2020-01-10', 'Contas');  d4 := (r->'despesa'->>'id')::uuid;
+  r := public.criar_despesa(c1.id, 'Luz', 90, '2020-01-18', 'Contas');       d5 := (r->'despesa'->>'id')::uuid;
+  r := public.criar_despesa(c1.id, 'Seguro', 70, '2020-03-01', 'Contas');    d6 := (r->'despesa'->>'id')::uuid;
 
   -- ---------- EXTRATO ----------
-  j := public.extrato('2030-01-01', '2030-01-31');
+  j := public.extrato('2020-01-01', '2020-01-31');
   assert (j->'totais'->>'entradas')::numeric = 1600, '1a: entradas deveriam ser 1600, deu ' || (j->'totais'->>'entradas');
   assert (j->'totais'->>'saidas')::numeric = 740, '1b: saídas = só pagas (740), deu ' || (j->'totais'->>'saidas');
   assert (j->'totais'->>'saldo_periodo')::numeric = 860, '1c: saldo do período deveria ser 860';
@@ -47,45 +48,45 @@ begin
   assert j->'itens'->0->>'descricao' = 'Salário' and j->'itens'->4->>'descricao' = 'Venda',
          '1e: ordem cronológica errada (esperado Salário ... Venda)';
 
-  j := public.extrato('2030-01-01', '2030-01-31', c2.id);
+  j := public.extrato('2020-01-01', '2020-01-31', c2.id);
   assert (j->'totais'->>'entradas')::numeric = 100 and (j->'totais'->>'quantidade')::int = 1, '2: filtro por conta falhou';
 
-  j := public.extrato('2030-01-01', '2030-01-31', null, 'despesas');
+  j := public.extrato('2020-01-01', '2020-01-31', null, 'despesas');
   assert (j->'totais'->>'saidas')::numeric = 740 and (j->'totais'->>'entradas')::numeric = 0
          and (j->'totais'->>'quantidade')::int = 2, '3: filtro "despesas" falhou';
 
-  j := public.extrato('2030-01-01', '2030-01-31', null, 'todos', 'categoria');
+  j := public.extrato('2020-01-01', '2020-01-31', null, 'todos', 'categoria');
   assert j->'itens'->0->>'descricao' = 'Mercado', '4: ordem por categoria deveria começar por Alimentação (Mercado)';
 
-  j := public.extrato('2030-01-01', '2030-01-31', null, 'todos', 'data', 2, 1);
+  j := public.extrato('2020-01-01', '2020-01-31', null, 'todos', 'data', 2, 1);
   assert jsonb_array_length(j->'itens') = 2 and j->'itens'->0->>'descricao' = 'Mercado'
          and (j->'totais'->>'quantidade')::int = 5, '5: paginação (limit 2, offset 1) falhou';
 
   perform public.excluir_despesa(d1);
-  j := public.extrato('2030-01-01', '2030-01-31');
+  j := public.extrato('2020-01-01', '2020-01-31');
   assert (j->'totais'->>'quantidade')::int = 4 and (j->'totais'->>'saidas')::numeric = 500,
          '6a: despesa paga excluída não deveria aparecer no extrato';
   perform public.restaurar_despesa(d1);
-  j := public.extrato('2030-01-01', '2030-01-31');
+  j := public.extrato('2020-01-01', '2020-01-31');
   assert (j->'totais'->>'quantidade')::int = 5 and (j->'totais'->>'saidas')::numeric = 740,
          '6b: despesa restaurada deveria voltar ao extrato';
 
   -- ---------- RELATÓRIO POR CATEGORIA ----------
-  j := public.relatorio_categorias('receitas', '2030-01-01', '2030-01-31');
+  j := public.relatorio_categorias('receitas', '2020-01-01', '2020-01-31');
   assert (j->>'total')::numeric = 1600 and (j->>'quantidade')::int = 3, '7a: total de receitas';
   assert j->'categorias'->0->>'categoria' = 'Salário' and (j->'categorias'->0->>'percentual')::numeric = 75.00,
          '7b: Salário deveria ser 75%';
   assert (select sum((c->>'percentual')::numeric) from jsonb_array_elements(j->'categorias') c) = 100,
          '7c: percentuais deveriam somar 100';
 
-  j := public.relatorio_categorias('despesas', '2030-01-01', '2030-01-31');
+  j := public.relatorio_categorias('despesas', '2020-01-01', '2020-01-31');
   assert (j->>'total')::numeric = 740 and (j->>'quantidade')::int = 2, '8a: despesas = só pagas (740)';
   assert j->'categorias'->0->>'categoria' = 'Moradia', '8b: maior categoria deveria ser Moradia';
   assert (j->'a_pagar'->>'total')::numeric = 320 and (j->'a_pagar'->>'quantidade')::int = 3,
          '8c: a pagar em janeiro deveria ser 320 (3 pendentes), deu ' || (j->'a_pagar'->>'total');
 
-  -- ---------- DASHBOARD (hoje = 2030-01-15) ----------
-  j := public.dashboard('2030-01-15');
+  -- ---------- DASHBOARD (hoje = 2020-01-15) ----------
+  j := public.dashboard('2020-01-15');
   assert (j->'entradas_30d'->>'total')::numeric = 1500 and (j->'entradas_30d'->>'quantidade')::int = 2,
          '9a: entradas 30d = 1500 (a receita de 20/01 ainda não aconteceu), deu ' || (j->'entradas_30d'->>'total');
   assert (j->'saidas_30d'->>'total')::numeric = 740 and (j->'saidas_30d'->>'quantidade')::int = 2, '9b: saídas 30d';
