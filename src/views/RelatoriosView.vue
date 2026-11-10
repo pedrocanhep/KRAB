@@ -7,12 +7,82 @@ import { todasContas, type Conta } from '../services/contas'
 import { moeda, dataFinanceira } from '../services/dashboard'
 import { mensagemErro } from '../services/http'
 import '../assets/forms.css'
+import '../assets/secondary.css'
+import Icon from '../components/dashboard/DashboardIcon.vue'
+import {
+  abrirImpressao,
+  imprimirDocumento,
+  consultarExtratoCompleto,
+  documentoRelatorio,
+} from '../services/exportacao-relatorio'
+import { useNotificacoesStore } from '../stores/notificacoes'
 
 const route = useRoute()
 const auth = useAuthStore()
 const natureza = computed(() =>
   route.path === '/extrato' ? 'todos' : route.path.endsWith('receitas') ? 'receitas' : 'despesas',
 )
+const notificacoes = useNotificacoesStore()
+const exportando = ref(false)
+const erroExportacao = ref('')
+const titulo = computed(() =>
+  natureza.value === 'todos' ? 'Extrato financeiro' : `Relatório de ${natureza.value}`,
+)
+async function exportar() {
+  if (exportando.value || carregando.value || !extrato.value || erro.value) return
+  const naturezaExportada = natureza.value
+  const tituloExportado = titulo.value
+  const consultaExportada = new URLSearchParams(aplicados)
+  const id = consultaExportada.get('conta_id')
+  const conta = id ? (contas.value.find((c) => c.id === id)?.nome ?? id) : 'Todas as contas ativas'
+  exportando.value = true
+  erroExportacao.value = ''
+  // Abra durante o clique para evitar o bloqueador de pop-ups após as consultas.
+  let janela: Window | undefined
+  try {
+    janela = abrirImpressao()
+    const filtros = new URLSearchParams(consultaExportada)
+    filtros.set(
+      'tipo',
+      naturezaExportada === 'todos'
+        ? (consultaExportada.get('tipo') ?? 'todos')
+        : naturezaExportada,
+    )
+    const dados = await consultarExtratoCompleto(filtros, auth.obterToken())
+    const filtrosResumo = new URLSearchParams(consultaExportada)
+    filtrosResumo.delete('tipo')
+    filtrosResumo.delete('ordem')
+    const resumo =
+      naturezaExportada === 'todos'
+        ? null
+        : await obterRelatorio(naturezaExportada, filtrosResumo, auth.obterToken())
+    if (
+      resumo &&
+      (resumo.quantidade !== dados.totais.quantidade ||
+        resumo.total !==
+          (naturezaExportada === 'receitas' ? dados.totais.entradas : dados.totais.saidas))
+    )
+      throw new Error('Os dados mudaram durante a exportação. Tente novamente.')
+    const nome = `krab-${naturezaExportada === 'todos' ? 'extrato' : `relatorio-${naturezaExportada}`}-${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })}`
+    imprimirDocumento(janela, documentoRelatorio(tituloExportado, conta, dados, resumo, nome))
+    notificacoes.adicionar({
+      tipo: 'sucesso',
+      titulo: 'Relatório preparado',
+      mensagem: 'Use “Salvar como PDF” na janela de impressão para concluir.',
+    })
+  } catch (falha) {
+    janela?.close()
+    erroExportacao.value = mensagemErro(falha)
+    notificacoes.adicionar({
+      tipo: 'erro',
+      titulo: 'Não foi possível gerar o relatório.',
+      mensagem: erroExportacao.value,
+      grupo: 'exportacao-pdf',
+    })
+  } finally {
+    exportando.value = false
+  }
+}
 function periodoPadrao() {
   const ate = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
   const inicio = new Date(`${ate}T12:00:00Z`)
@@ -40,7 +110,7 @@ async function carregarContas() {
   carregandoContas.value = true
   erroContas.value = ''
   try {
-    contas.value = await todasContas(auth.obterToken())
+    contas.value = await todasContas(auth.obterToken(), 'todas')
   } catch (falha) {
     erroContas.value = mensagemErro(falha)
   } finally {
@@ -82,6 +152,7 @@ async function carregar() {
   }
 }
 function aplicar() {
+  if (exportando.value || carregando.value) return
   if (!de.value || !ate.value || de.value > ate.value) {
     erro.value = 'Informe uma data inicial igual ou anterior à data final.'
     return
@@ -105,7 +176,8 @@ function limpar() {
   aplicar()
 }
 function paginar(delta: number) {
-  offset.value += delta
+  if (carregando.value || exportando.value) return
+  offset.value = Math.max(0, offset.value + delta)
   void carregar()
 }
 onMounted(() => {
@@ -116,35 +188,53 @@ onMounted(() => {
 
 <template>
   <div class="report-content" :aria-busy="carregando">
+    <p v-if="erroExportacao" class="form-error" role="alert">{{ erroExportacao }}</p>
     <form class="cadastro-form report-filters" @submit.prevent="aplicar">
-      <label>Data inicial<input v-model="de" type="date" required /></label>
-      <label>Data final<input v-model="ate" type="date" required /></label>
+      <div class="report-filter-heading">
+        <h3>Filtros</h3>
+        <button
+          type="button"
+          class="submit-button pdf-button"
+          :aria-busy="exportando"
+          title="Imprimir o relatório completo ou salvar como PDF"
+          aria-label="Imprimir ou salvar como PDF o relatório completo dos filtros aplicados"
+          :disabled="exportando || carregando || !extrato || Boolean(erro)"
+          @click="exportar"
+        >
+          <Icon name="baixar" />{{ exportando ? 'Preparando PDF…' : 'Imprimir / PDF' }}
+        </button>
+      </div>
+      <label>Data inicial<input :disabled="exportando" v-model="de" type="date" required /></label>
+      <label>Data final<input :disabled="exportando" v-model="ate" type="date" required /></label>
       <label
-        >Conta<select v-model="contaId" :disabled="carregandoContas || Boolean(erroContas)">
+        >Conta<select
+          v-model="contaId"
+          :disabled="exportando || carregandoContas || Boolean(erroContas)"
+        >
           <option value="">Todas as contas ativas</option>
           <option v-for="conta in contas" :key="conta.id" :value="conta.id">
-            {{ conta.nome }}
+            {{ conta.nome }}{{ conta.deleted_at ? ' (excluída)' : '' }}
           </option>
         </select></label
       >
       <template v-if="natureza === 'todos'">
         <label
-          >Tipo<select v-model="tipo">
+          >Tipo<select v-model="tipo" :disabled="exportando">
             <option value="todos">Todos</option>
             <option value="receitas">Receitas</option>
             <option value="despesas">Despesas pagas</option>
           </select></label
         >
         <label
-          >Ordenar por<select v-model="ordem">
+          >Ordenar por<select v-model="ordem" :disabled="exportando">
             <option value="data">Data</option>
             <option value="categoria">Categoria</option>
           </select></label
         >
       </template>
       <div class="report-filter-actions">
-        <button class="submit-button" :disabled="carregando">Aplicar filtros</button
-        ><button type="button" class="retry" :disabled="carregando" @click="limpar">
+        <button class="submit-button" :disabled="carregando || exportando">Aplicar filtros</button
+        ><button type="button" class="retry" :disabled="carregando || exportando" @click="limpar">
           Limpar filtros
         </button>
       </div>
@@ -154,10 +244,6 @@ onMounted(() => {
       <p>Não foi possível carregar as opções de conta. {{ erroContas }}</p>
       <button class="retry" @click="carregarContas">Tentar carregar contas</button>
     </div>
-    <p class="state-message">
-      Valores efetivados: receitas por recebimento e despesas por pagamento. O período padrão
-      corresponde aos últimos 30 dias.
-    </p>
     <p v-if="carregando" role="status">Carregando relatório…</p>
     <div v-else-if="erro" class="form-error" role="alert">
       <p>{{ erro }}</p>
@@ -165,54 +251,47 @@ onMounted(() => {
       ><RouterLink v-if="!auth.accessToken" to="/login">Entrar novamente</RouterLink>
     </div>
     <template v-else-if="extrato">
-      <p class="form-hint">
-        Período consultado: {{ dataFinanceira(extrato.periodo.de) }} a
-        {{ dataFinanceira(extrato.periodo.ate) }}
-      </p>
       <template v-if="relatorio">
-        <p class="report-total">
-          {{ natureza === 'receitas' ? 'Total recebido' : 'Total pago' }}:
-          <strong>{{ moeda(relatorio.total) }}</strong> • {{ relatorio.quantidade }} registros
-        </p>
-        <p v-if="relatorio.a_pagar" class="state-message">
-          A pagar por vencimento no período: {{ moeda(relatorio.a_pagar.total) }} •
-          {{ relatorio.a_pagar.quantidade }} despesas pendentes
-        </p>
-        <div v-if="relatorio.categorias.length" class="table-scroll">
-          <table>
-            <caption>
-              Totais por categoria
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Categoria</th>
-                <th scope="col">Quantidade</th>
-                <th scope="col">Total</th>
-                <th scope="col">Participação</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="categoria in relatorio.categorias" :key="categoria.categoria">
-                <td>{{ categoria.categoria }}</td>
-                <td>{{ categoria.quantidade }}</td>
-                <td>{{ moeda(categoria.total) }}</td>
-                <td>{{ categoria.percentual.toLocaleString('pt-BR') }}%</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <dl class="report-summary">
+          <div>
+            <dt>{{ natureza === 'receitas' ? 'Total recebido' : 'Total pago' }}</dt>
+            <dd :class="natureza === 'receitas' ? 'positive' : 'negative'">
+              {{ moeda(relatorio.total) }}
+            </dd>
+          </div>
+          <div v-if="relatorio.a_pagar">
+            <dt>A pagar por vencimento</dt>
+            <dd>
+              {{ moeda(relatorio.a_pagar.total) }}
+              <small>({{ relatorio.a_pagar.quantidade }} pendentes)</small>
+            </dd>
+          </div>
+        </dl>
       </template>
-      <p v-else class="report-total">
-        Entradas: {{ moeda(extrato.totais.entradas) }} • Saídas:
-        {{ moeda(extrato.totais.saidas) }} • Resultado do período:
-        {{ moeda(extrato.totais.saldo_periodo) }} • Saldo atual: {{ moeda(extrato.saldo_atual) }}
-      </p>
+      <dl v-else class="report-summary">
+        <div>
+          <dt>Entradas</dt>
+          <dd class="positive">{{ moeda(extrato.totais.entradas) }}</dd>
+        </div>
+        <div>
+          <dt>Saídas</dt>
+          <dd class="negative">{{ moeda(extrato.totais.saidas) }}</dd>
+        </div>
+        <div>
+          <dt>Resultado do período</dt>
+          <dd>{{ moeda(extrato.totais.saldo_periodo) }}</dd>
+        </div>
+        <div>
+          <dt>Saldo atual</dt>
+          <dd>{{ moeda(extrato.saldo_atual) }}</dd>
+        </div>
+      </dl>
       <p v-if="!extrato.itens.length" class="state-message">
         {{
           natureza === 'receitas'
             ? 'Nenhuma receita encontrada para os filtros selecionados.'
             : natureza === 'despesas'
-              ? 'Nenhuma despesa encontrada para os filtros selecionados.'
+              ? 'Nenhuma despesa paga encontrada para os filtros selecionados.'
               : 'Nenhuma movimentação encontrada para este período.'
         }}
       </p>
@@ -250,15 +329,23 @@ onMounted(() => {
           </tbody>
         </table>
       </div>
-      <div class="report-navigation">
-        <button class="retry" :disabled="offset === 0" @click="paginar(-100)">Anterior</button
-        ><span>{{ extrato.totais.quantidade }} registros • Página {{ offset / 100 + 1 }}</span
+      <div class="compact-pagination">
+        <small>{{ extrato.totais.quantidade }} registros</small>
+        <button
+          class="retry"
+          aria-label="Página anterior"
+          :disabled="carregando || exportando || offset === 0"
+          @click="paginar(-100)"
+        >
+          ‹</button
+        ><span>Página {{ offset / 100 + 1 }}</span
         ><button
           class="retry"
-          :disabled="offset + 100 >= extrato.totais.quantidade"
+          aria-label="Próxima página"
+          :disabled="carregando || exportando || offset + 100 >= extrato.totais.quantidade"
           @click="paginar(100)"
         >
-          Próxima
+          ›
         </button>
       </div>
     </template>

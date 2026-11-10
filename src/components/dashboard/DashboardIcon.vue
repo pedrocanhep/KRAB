@@ -6,6 +6,7 @@ const paths: Record<string, string> = {
   mais: 'M12 5v14M5 12h14',
   menos: 'M5 12h14',
   banco: 'm3 9 9-6 9 6H3Zm2 2v8m5-8v8m4-8v8m5-8v8M3 21h18',
+  baixar: 'M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4',
   documento: 'M14 3H5v18h14V8l-5-5Zm0 0v6h5M8 13h8M8 17h6',
   alerta: 'M12 8v5m0 3v.1M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z',
   cartao: 'M3 5h18v14H3V5Zm0 5h18M6 15h4',

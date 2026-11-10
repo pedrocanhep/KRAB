@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/auth'
 import LoginView from '../views/LoginView.vue'
 import CadastroView from '../views/CadastroView.vue'
 import NotFoundView from '../views/NotFoundView.vue'
+import RecorrenciasView from '../views/RecorrenciasView.vue'
 import MovimentacoesView from '../views/MovimentacoesView.vue'
 import AtividadesView from '../views/AtividadesView.vue'
 import HomeView from '../views/HomeView.vue'
@@ -13,6 +14,7 @@ const router = createRouter({
 
   routes: [
     { path: '/cadastro', component: CadastroView, meta: { publica: true } },
+    { path: '/despesas-recorrentes', component: RecorrenciasView },
     { path: '/movimentacoes', component: MovimentacoesView },
     { path: '/atividades', component: AtividadesView },
     { path: '/receitas', component: CadastrosView },
