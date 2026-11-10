@@ -1,94 +1,86 @@
 <script setup lang="ts">
-import { nextTick, onUnmounted, ref, watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { moeda, dataFinanceira, type Movimento } from '../../services/dashboard'
+import { moeda } from '../../services/dashboard'
+import { obterAtividades, dataCadastro, type Atividade } from '../../services/atividades'
+import { mensagemErro } from '../../services/http'
+import { useAuthStore } from '../../stores/auth'
 import Icon from './DashboardIcon.vue'
-const props = defineProps<{
-  itens: Movimento[]
-  carregando: boolean
-  erro: string
-  autenticado: boolean
-}>()
-defineEmits<{ tentar: [] }>()
 
+const props = defineProps<{ contaSelecionada: boolean; versao: number }>()
+const auth = useAuthStore()
+const itens = ref<Atividade[]>([])
+const carregando = ref(false)
+const erro = ref('')
 const lista = ref<HTMLUListElement | null>(null)
-const alturaLista = ref<string>()
-let frameMedicao = 0
-// Medir no próximo frame evita alterar a altura durante a notificação de resize.
-const observador = new ResizeObserver(() => {
-  cancelAnimationFrame(frameMedicao)
-  frameMedicao = requestAnimationFrame(atualizarAltura)
-})
-
-// Medimos os itens reais para manter cinco completos e metade do sexto mesmo
-// com descrições longas, status ou quebra de linha no celular. Sem sexto item,
-// a lista usa sua altura natural, sem reservar espaço para registros ausentes.
-function atualizarAltura() {
-  const primeiro = lista.value?.children[0]
-  const sexto = lista.value?.children[5]
-  alturaLista.value =
-    primeiro && sexto
-      ? `${sexto.getBoundingClientRect().top - primeiro.getBoundingClientRect().top + sexto.getBoundingClientRect().height / 2}px`
-      : undefined
+let leitura = 0
+function rotulo(item: Atividade) {
+  if (item.tipo === 'conta') return 'Conta ou caixa cadastrado'
+  if (item.tipo === 'receita') return 'Receita cadastrada'
+  return item.status === 'paga' ? 'Despesa paga' : 'Despesa cadastrada · pendente'
 }
-
-watch(
-  [lista, () => props.itens],
-  async () => {
+async function carregar() {
+  const atual = ++leitura
+  carregando.value = true
+  erro.value = ''
+  itens.value = []
+  try {
+    const resultado = await obterAtividades(auth.obterToken())
+    if (atual !== leitura) return
+    itens.value = resultado.itens
     await nextTick()
-    observador.disconnect()
-    if (lista.value) {
-      observador.observe(lista.value)
-      for (const item of lista.value.children) observador.observe(item)
-    }
-    atualizarAltura()
-  },
-  { flush: 'post' },
-)
-onUnmounted(() => {
-  observador.disconnect()
-  cancelAnimationFrame(frameMedicao)
-})
+    lista.value?.scrollTo({ top: 0 })
+  } catch (falha) {
+    if (atual === leitura) erro.value = mensagemErro(falha)
+  } finally {
+    if (atual === leitura) carregando.value = false
+  }
+}
+watch(() => props.versao, carregar, { immediate: true })
 </script>
 
 <template>
   <section class="panel movements" :aria-busy="carregando">
     <div class="section-heading">
       <div>
-        <h2>Movimentações recentes</h2>
-        <p>Receitas e despesas pagas mais recentes</p>
+        <h2>Atividades recentes</h2>
+        <p>Últimas atividades registradas no sistema</p>
+        <p v-if="contaSelecionada" class="home-general-note">
+          Visão geral · todas as contas/caixas, sem filtro
+        </p>
       </div>
-      <span v-if="!carregando && !erro" class="badge">{{ itens.length }} movimentações</span>
+      <span v-if="!carregando && !erro" class="badge">{{ itens.length }} atividades</span>
     </div>
-    <p v-if="carregando" role="status" class="state-message">Carregando movimentações…</p>
+    <p v-if="carregando" role="status" class="state-message">Carregando atividades…</p>
     <div v-else-if="erro" role="alert" class="state-message">
       <p>{{ erro }}</p>
-      <button v-if="autenticado" class="retry" @click="$emit('tentar')">Tentar novamente</button
-      ><RouterLink v-else to="/login">Entrar novamente</RouterLink>
+      <button v-if="auth.accessToken" class="retry" @click="carregar">Tentar novamente</button>
+      <RouterLink v-else to="/login">Entrar novamente</RouterLink>
     </div>
-    <p v-else-if="!itens.length" class="state-message">Nenhuma movimentação registrada ainda.</p>
+    <p v-else-if="!itens.length" class="state-message">Nenhuma atividade encontrada.</p>
     <ul
       v-else
       ref="lista"
       class="movement-list"
-      :style="{ maxHeight: alturaLista }"
-      :tabindex="itens.length > 5 ? 0 : undefined"
-      aria-label="Movimentações recentes — lista rolável"
+      tabindex="0"
+      aria-label="Atividades recentes — lista rolável"
     >
-      <li v-for="item in itens" :key="`${item.tipo}-${item.id}`" :class="item.tipo">
-        <span class="icon-box"><Icon :name="item.tipo === 'receita' ? 'entrada' : 'saida'" /></span>
+      <li
+        v-for="item in itens"
+        :key="`${item.tipo}-${item.id}`"
+        :class="item.tipo === 'conta' ? 'banco' : item.tipo"
+      >
+        <span class="icon-box"
+          ><Icon
+            :name="item.tipo === 'conta' ? 'banco' : item.tipo === 'receita' ? 'entrada' : 'saida'"
+        /></span>
         <div class="movement-description">
-          <strong>{{ item.descricao }}</strong>
-          <p>
-            {{ item.tipo === 'receita' ? 'Receita' : 'Despesa paga' }} •
-            {{ dataFinanceira(item.data) }}
-          </p>
+          <strong>{{ rotulo(item) }}</strong>
+          <p>{{ item.tipo === 'conta' ? item.nome : item.descricao }}</p>
+          <p>{{ dataCadastro(item.created_at) }}</p>
         </div>
-        <strong class="movement-value"
-          >{{ item.tipo === 'receita' ? '+' : '-' }} {{ moeda(Math.abs(item.valor)) }}</strong
-        >
+        <strong v-if="item.tipo !== 'conta'" class="movement-value">{{ moeda(item.valor) }}</strong>
       </li>
     </ul>
-    <RouterLink to="/extrato">Ver extrato completo</RouterLink>
   </section>
 </template>

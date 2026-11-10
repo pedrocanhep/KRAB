@@ -1,65 +1,92 @@
+<script lang="ts">
+// O lock é compartilhado para que a troca de painéis não restaure o scroll cedo demais.
+let paineisAbertos = 0
+let overflowOriginal = ''
+</script>
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, useId } from 'vue'
 import Icon from './DashboardIcon.vue'
-
-defineProps<{ titulo: string; ocupado: boolean; subtitulo?: string }>()
+const props = defineProps<{ titulo: string; ocupado: boolean; subtitulo?: string }>()
 const emit = defineEmits<{ fechar: [] }>()
 const painel = ref<HTMLElement>()
+const tituloId = useId()
 const focoAnterior = document.activeElement as HTMLElement | null
-const overflowAnterior = document.body.style.overflow
-
-// O fundo recebe inert na Home. Aqui prendemos o foco no diálogo e o devolvemos
-// ao atalho ao desmontar. Toda tentativa de fechamento passa pela view.
-function teclado(event: KeyboardEvent) {
-  if (event.key === 'Escape') emit('fechar')
-  if (event.key !== 'Tab') return
-  const campos = painel.value?.querySelectorAll<HTMLElement>(
-    'button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]',
+function fechar() {
+  if (!props.ocupado) emit('fechar')
+}
+function focaveis() {
+  return Array.from(
+    painel.value?.querySelectorAll<HTMLElement>(
+      'button, input, select, textarea, a[href], [tabindex]',
+    ) ?? [],
+  ).filter(
+    (el) =>
+      !el.matches(':disabled') &&
+      el.tabIndex >= 0 &&
+      el.getClientRects().length > 0 &&
+      !el.closest('[inert]'),
   )
-  if (!campos?.length) return
-  const primeiro = campos[0]!
-  const ultimo = campos[campos.length - 1]!
-  if (event.shiftKey && document.activeElement === primeiro) {
+}
+function teclado(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
     event.preventDefault()
-    ultimo.focus()
+    fechar()
+    return
+  }
+  if (event.key !== 'Tab') return
+  const campos = focaveis()
+  const primeiro = campos[0]
+  const ultimo = campos[campos.length - 1]
+  if (!primeiro || !ultimo) {
+    event.preventDefault()
+    painel.value?.focus()
+    return
+  }
+  if (
+    !painel.value?.contains(document.activeElement) ||
+    (event.shiftKey &&
+      (document.activeElement === primeiro || document.activeElement === painel.value))
+  ) {
+    event.preventDefault()
+    ;(event.shiftKey ? ultimo : primeiro).focus()
   } else if (!event.shiftKey && document.activeElement === ultimo) {
     event.preventDefault()
     primeiro.focus()
   }
 }
 onMounted(() => {
-  document.body.style.overflow = 'hidden'
-  painel.value?.querySelector('button')?.focus()
+  if (paineisAbertos++ === 0) {
+    overflowOriginal = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+  }
+  ;(focaveis()[0] ?? painel.value)?.focus()
   document.addEventListener('keydown', teclado)
 })
 onUnmounted(() => {
-  document.body.style.overflow = overflowAnterior
   document.removeEventListener('keydown', teclado)
-  focoAnterior?.focus()
+  if (--paineisAbertos === 0) document.body.style.overflow = overflowOriginal
+  void nextTick(() => {
+    if (paineisAbertos === 0 && focoAnterior?.isConnected) focoAnterior.focus()
+  })
 })
 </script>
-
 <template>
-  <div class="drawer-overlay" @click.self="emit('fechar')">
+  <div class="drawer-overlay" @click.self="fechar">
     <section
       ref="painel"
       class="drawer-panel"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="drawer-titulo"
+      :aria-labelledby="tituloId"
       :aria-busy="ocupado"
+      tabindex="-1"
     >
       <header>
         <div>
           <p>{{ subtitulo ?? 'Novo cadastro' }}</p>
-          <h2 id="drawer-titulo">{{ titulo }}</h2>
+          <h2 :id="tituloId">{{ titulo }}</h2>
         </div>
-        <button
-          type="button"
-          aria-label="Fechar painel"
-          :disabled="ocupado"
-          @click="emit('fechar')"
-        >
+        <button type="button" aria-label="Fechar painel" :disabled="ocupado" @click="fechar">
           <Icon name="fechar" />
         </button>
       </header>
