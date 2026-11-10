@@ -1,4 +1,5 @@
 import { requisitar } from './http'
+import type { EventoSaldo, Lista } from './contas'
 
 export interface CriarReceita {
   conta_id: string
@@ -7,24 +8,44 @@ export interface CriarReceita {
   data_recebimento: string
   categoria: string
 }
-
-export function criarReceita(payload: CriarReceita, token: string): Promise<unknown> {
-  return requisitar('/receitas', token, payload)
-}
-
 export interface Receita extends Omit<CriarReceita, 'valor'> {
   id: string
   valor: number
+  deleted_at: string | null
+  created_at: string
+  updated_at: string
 }
-export function listarReceitas(token: string, offset = 0) {
-  return requisitar<import('./contas').Lista<Receita>>(
-    `/receitas?limit=100&offset=${offset}`,
+export interface DetalheReceita extends Receita {
+  historico: EventoSaldo[]
+}
+export function criarReceita(payload: CriarReceita, token: string, chave?: string) {
+  return requisitar<Receita>(
+    '/receitas',
     token,
+    payload,
+    'POST',
+    chave ? { 'Idempotency-Key': chave } : {},
   )
 }
-export function editarReceita(id: string, payload: Omit<CriarReceita, 'conta_id'>, token: string) {
-  return requisitar(`/receitas/${id}`, token, payload, 'PATCH')
+export function listarReceitas(token: string, offset = 0, filtros = new URLSearchParams()) {
+  const query = new URLSearchParams(filtros)
+  query.set('limit', '100')
+  query.set('offset', String(offset))
+  return requisitar<Lista<Receita>>(`/receitas?${query}`, token)
+}
+export function obterReceita(id: string, token: string) {
+  return requisitar<DetalheReceita>(`/receitas/${id}`, token)
+}
+export function editarReceita(
+  id: string,
+  payload: Partial<Omit<CriarReceita, 'conta_id'>>,
+  token: string,
+) {
+  return requisitar<Receita>(`/receitas/${id}`, token, payload, 'PATCH')
 }
 export function excluirReceita(id: string, token: string) {
-  return requisitar(`/receitas/${id}`, token, undefined, 'DELETE')
+  return requisitar<Receita>(`/receitas/${id}`, token, undefined, 'DELETE')
+}
+export function restaurarReceita(id: string, token: string) {
+  return requisitar<Receita>(`/receitas/${id}/restauracao`, token, {})
 }

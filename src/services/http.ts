@@ -28,6 +28,15 @@ export async function verificarResposta(resposta: Response): Promise<void> {
     nome: 'Nome',
     tipo: 'Tipo de conta',
     saldo_inicial: 'Saldo inicial',
+    data_pagamento: 'Data de pagamento',
+    data_inicio: 'Data inicial',
+    data_fim: 'Data final',
+    frequencia: 'Frequência',
+    status: 'Status',
+    cod_banco: 'Código do banco',
+    agencia: 'Agência',
+    num_conta: 'Número da conta',
+    digito_verificador: 'Dígito verificador',
   }
   const detalhes = erro?.detalhes
     ?.map((item) => {
@@ -47,10 +56,12 @@ export async function requisitar<T>(
   token: string,
   payload?: unknown,
   metodo?: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  headersAdicionais: Record<string, string> = {},
 ): Promise<T> {
   const resposta = await fetch(`http://localhost:3333${caminho}`, {
     method: metodo ?? (payload === undefined ? 'GET' : 'POST'),
     headers: {
+      ...headersAdicionais,
       Authorization: `Bearer ${token}`,
       ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }),
     },

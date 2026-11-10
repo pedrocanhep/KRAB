@@ -40,3 +40,13 @@ export const moeda = (valor: number) =>
 export function dataFinanceira(data: string): string {
   return new Intl.DateTimeFormat('pt-BR').format(new Date(`${data}T12:00:00`))
 }
+
+export const hojeSaoPaulo = () =>
+  new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
+
+export const dataHora = (valor: string) =>
+  new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    timeZone: 'America/Sao_Paulo',
+  }).format(new Date(valor))

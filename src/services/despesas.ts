@@ -1,6 +1,6 @@
-import { verificarResposta, requisitar } from './http'
+import { requisitar } from './http'
+import type { EventoSaldo, Lista } from './contas'
 
-// Contrato enviado ao POST: o backend exige valor decimal como texto, não como número.
 export interface CriarDespesaPayload {
   conta_id: string
   descricao: string
@@ -8,86 +8,56 @@ export interface CriarDespesaPayload {
   data_vencimento: string
   categoria: string
 }
-
-// Campos da resposta que a tabela utiliza; o backend também retorna outros campos.
-export interface Despesa {
+export interface Despesa extends Omit<CriarDespesaPayload, 'valor'> {
   id: string
-  conta_id: string
-  descricao: string
   valor: number
-  data_vencimento: string
-  categoria: string
   status: 'pendente' | 'paga'
+  data_pagamento: string | null
+  valor_pago: number | null
+  deleted_at: string | null
+  created_at: string
+  updated_at: string
+  recorrencia_id: string | null
 }
-
-interface ListagemDespesas {
-  itens: Despesa[]
-  total: number
-  limit: number
-  offset: number
+export interface DetalheDespesa extends Despesa {
+  historico: EventoSaldo[]
 }
-
-// A seleção automática precisa apenas do identificador da primeira conta ativa.
-interface ListagemContas {
-  itens: { id: string }[]
-  total: number
-  limit: number
-  offset: number
+export interface ResultadoDespesa {
+  despesa: Despesa
+  saldo_conta: number
+  saldo_negativo: boolean
 }
-
-export async function obterPrimeiraContaAtiva(token: string): Promise<string> {
-  const resposta = await fetch('http://localhost:3333/contas?situacao=ativas', {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  // Validamos o HTTP antes de usar o corpo; token inválido interrompe o fluxo aqui.
-  await verificarResposta(resposta)
-  const contas = (await resposta.json()) as ListagemContas
-  const conta = contas.itens[0]
-  // Sem conta ativa, lançamos um erro antes que a tela possa executar o POST.
-  if (!conta) {
-    throw new Error(
-      'Nenhuma conta ativa encontrada. Cadastre ou reative uma conta antes de cadastrar a despesa.',
-    )
-  }
-  return conta.id
+export function criarDespesa(payload: CriarDespesaPayload, token: string, chave?: string) {
+  return requisitar<ResultadoDespesa>(
+    '/despesas',
+    token,
+    payload,
+    'POST',
+    chave ? { 'Idempotency-Key': chave } : {},
+  )
 }
-
-// A tela fornece os dados e o token da sessão. Este service envia o JSON ao
-// Fastify, que valida a entrada e solicita a persistência ao Supabase.
-export async function criarDespesa(payload: CriarDespesaPayload, token: string): Promise<void> {
-  const resposta = await fetch('http://localhost:3333/despesas', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token.trim()}`,
-    },
-    body: JSON.stringify(payload),
-  })
-
-  // fetch não lança erro automaticamente para HTTP 401, 422 ou 500.
-  await verificarResposta(resposta)
+export function listarDespesas(token: string, offset = 0, filtros = new URLSearchParams()) {
+  const query = new URLSearchParams(filtros)
+  query.set('limit', '100')
+  query.set('offset', String(offset))
+  return requisitar<Lista<Despesa>>(`/despesas?${query}`, token)
 }
-
-// Consulta os registros persistidos, sem aproveitar dados locais do cadastro.
-// O token identifica o usuário; sem filtros, a API retorna até 20 despesas ativas.
-export async function listarDespesas(token: string, offset = 0): Promise<ListagemDespesas> {
-  const resposta = await fetch(`http://localhost:3333/despesas?limit=100&offset=${offset}`, {
-    headers: { Authorization: `Bearer ${token.trim()}` },
-  })
-  await verificarResposta(resposta)
-  return (await resposta.json()) as ListagemDespesas
+export function obterDespesa(id: string, token: string) {
+  return requisitar<DetalheDespesa>(`/despesas/${id}`, token)
 }
-
-export function editarDespesa(
-  id: string,
-  payload: Omit<CriarDespesaPayload, 'conta_id'>,
-  token: string,
-) {
-  return requisitar(`/despesas/${id}`, token, payload, 'PATCH')
+export function editarDespesa(id: string, payload: Partial<CriarDespesaPayload>, token: string) {
+  return requisitar<ResultadoDespesa>(`/despesas/${id}`, token, payload, 'PATCH')
 }
 export function excluirDespesa(id: string, token: string) {
-  return requisitar(`/despesas/${id}`, token, undefined, 'DELETE')
+  return requisitar<ResultadoDespesa>(`/despesas/${id}`, token, undefined, 'DELETE')
 }
-export function pagarDespesa(id: string, token: string) {
-  return requisitar(`/despesas/${id}/pagamento`, token, {})
+export function restaurarDespesa(id: string, token: string) {
+  return requisitar<ResultadoDespesa>(`/despesas/${id}/restauracao`, token, {})
+}
+export function pagarDespesa(id: string, token: string, data_pagamento?: string) {
+  return requisitar<ResultadoDespesa>(
+    `/despesas/${id}/pagamento`,
+    token,
+    data_pagamento ? { data_pagamento } : {},
+  )
 }

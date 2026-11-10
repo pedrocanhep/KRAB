@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import LoginView from '../views/LoginView.vue'
+import MovimentacoesView from '../views/MovimentacoesView.vue'
+import AtividadesView from '../views/AtividadesView.vue'
 import HomeView from '../views/HomeView.vue'
 import CadastrosView from '../views/CadastrosView.vue'
 
@@ -8,6 +10,8 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
 
   routes: [
+    { path: '/movimentacoes', component: MovimentacoesView },
+    { path: '/atividades', component: AtividadesView },
     { path: '/receitas', component: CadastrosView },
     { path: '/contas', component: CadastrosView },
     { path: '/extrato', component: HomeView },

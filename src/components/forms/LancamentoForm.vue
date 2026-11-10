@@ -5,6 +5,8 @@ import { useAuthStore } from '../../stores/auth'
 import { criarDespesa, editarDespesa, type Despesa } from '../../services/despesas'
 import { criarReceita, editarReceita, type Receita } from '../../services/receitas'
 import { mensagemErro } from '../../services/http'
+import { hojeSaoPaulo } from '../../services/dashboard'
+import { criarTentativaIdempotente } from '../../services/idempotencia'
 
 import { todasContas, type Conta } from '../../services/contas'
 
@@ -19,8 +21,8 @@ async function carregarContas() {
   carregandoContas.value = true
   erroContas.value = ''
   try {
-    contas.value = await todasContas(auth.obterToken())
-    if (!contaId.value) contaId.value = contas.value[0]?.id ?? ''
+    contas.value = await todasContas(auth.obterToken(), 'todas')
+    if (!contaId.value) contaId.value = contas.value.find((c) => !c.deleted_at)?.id ?? ''
   } catch (falha) {
     erroContas.value = mensagemErro(falha)
   } finally {
@@ -41,8 +43,28 @@ const categoria = ref(props.registro?.categoria ?? '')
 const enviando = ref(false)
 const erro = ref('')
 const sucesso = ref('')
+const valores = () =>
+  JSON.stringify([contaId.value, descricao.value, valor.value, data.value, categoria.value])
+const original = valores()
 const alterado = computed(() =>
-  Boolean(descricao.value || valor.value || data.value || categoria.value),
+  props.registro
+    ? valores() !== original
+    : Boolean(descricao.value || valor.value || data.value || categoria.value),
+)
+const contaOriginalExcluida = computed(() =>
+  Boolean(
+    props.registro && contas.value.find((c) => c.id === props.registro?.conta_id)?.deleted_at,
+  ),
+)
+const contasDisponiveis = computed(() =>
+  contas.value.filter((c) => !c.deleted_at || c.id === props.registro?.conta_id),
+)
+const tentativa = criarTentativaIdempotente()
+const bloquearConta = computed(() =>
+  Boolean(
+    props.registro &&
+    (props.tipo === 'receita' || ('status' in props.registro && props.registro.status === 'paga')),
+  ),
 )
 defineExpose({ alterado, enviando })
 
@@ -58,6 +80,12 @@ async function salvar() {
     if (!/^\d{1,12}(\.\d{1,2})?$/.test(decimal) || Number(decimal) <= 0) {
       throw new Error('Informe um valor maior que zero, com até duas casas decimais.')
     }
+    if (props.tipo === 'receita' && data.value > hojeSaoPaulo())
+      throw new Error('A data de recebimento não pode ser futura.')
+    if (contaOriginalExcluida.value && props.tipo === 'despesa')
+      throw new Error('Restaure a conta antes de alterar o lançamento.')
+    if (contaOriginalExcluida.value && props.registro && Number(decimal) !== props.registro.valor)
+      throw new Error('Restaure a conta antes de alterar o valor da receita.')
     const token = auth.obterToken()
     if (!contaId.value) throw new Error('Cadastre uma conta antes de registrar o lançamento.')
     const campos = {
@@ -69,21 +97,34 @@ async function salvar() {
     const { conta_id: conta, ...editaveis } = campos
     if (props.tipo === 'despesa') {
       const payload = { ...editaveis, data_vencimento: data.value }
-      if (props.registro) await editarDespesa(props.registro.id, payload, token)
-      else await criarDespesa({ ...payload, conta_id: conta }, token)
+      if (props.registro) {
+        const podeTrocar = 'status' in props.registro && props.registro.status === 'pendente'
+        await editarDespesa(
+          props.registro.id,
+          { ...payload, ...(podeTrocar ? { conta_id: conta } : {}) },
+          token,
+        )
+      } else {
+        const criacao = { ...payload, conta_id: conta }
+        await criarDespesa(criacao, token, tentativa.chavePara(criacao))
+      }
       sucesso.value = props.registro
         ? 'Despesa atualizada com sucesso.'
         : 'Despesa cadastrada. O saldo será atualizado após o pagamento.'
     } else {
       const payload = { ...editaveis, data_recebimento: data.value }
       if (props.registro) await editarReceita(props.registro.id, payload, token)
-      else await criarReceita({ ...payload, conta_id: conta }, token)
+      else {
+        const criacao = { ...payload, conta_id: conta }
+        await criarReceita(criacao, token, tentativa.chavePara(criacao))
+      }
       sucesso.value = props.registro
         ? 'Receita atualizada com sucesso.'
         : 'Receita cadastrada com sucesso.'
     }
     // Só descartamos campos após confirmação do POST. A view atualiza o GET
     // separadamente, para uma falha de leitura não parecer falha no cadastro.
+    tentativa.concluir()
     if (!props.registro) descricao.value = valor.value = data.value = categoria.value = ''
     emit('salvo')
   } catch (falha) {
@@ -102,15 +143,35 @@ async function salvar() {
       <p>{{ erroContas }}</p>
       <button type="button" class="retry" @click="carregarContas">Tentar novamente</button>
     </div>
-    <p v-else-if="!contas.length" class="form-hint">
+    <p v-else-if="!contasDisponiveis.length" class="form-hint">
       Cadastre uma conta antes de registrar lançamentos.
       <RouterLink :to="{ path: '/', query: { cadastro: 'banco' } }">Cadastrar conta</RouterLink>
     </p>
-    <fieldset :disabled="enviando || carregandoContas || Boolean(erroContas) || !contas.length">
+    <p v-if="contaOriginalExcluida" class="form-error">
+      {{
+        tipo === 'receita'
+          ? 'Conta excluída: é possível corrigir os dados da receita sem mudar o valor. Restaure a conta para alterar o saldo.'
+          : 'Restaure a conta em Contas e caixas antes de alterar este lançamento.'
+      }}
+    </p>
+    <fieldset
+      :disabled="
+        enviando ||
+        carregandoContas ||
+        Boolean(erroContas) ||
+        !contasDisponiveis.length ||
+        (contaOriginalExcluida && tipo === 'despesa')
+      "
+    >
       <label
-        >Conta<select v-model="contaId" required :disabled="Boolean(registro)">
-          <option v-for="conta in contas" :key="conta.id" :value="conta.id">
-            {{ conta.nome }}
+        >Conta<select v-model="contaId" required :disabled="bloquearConta">
+          <option
+            v-for="conta in contasDisponiveis"
+            :key="conta.id"
+            :value="conta.id"
+            :disabled="Boolean(conta.deleted_at)"
+          >
+            {{ conta.nome }}{{ conta.deleted_at ? ' (excluída)' : '' }}
           </option>
         </select></label
       >
@@ -123,11 +184,20 @@ async function salvar() {
           placeholder="Ex.: serviços do mês"
       /></label>
       <label
-        >Valor (R$)<input v-model="valor" required inputmode="decimal" placeholder="0,00"
+        >Valor (R$)<input
+          v-model="valor"
+          :disabled="contaOriginalExcluida"
+          required
+          inputmode="decimal"
+          placeholder="0,00"
       /></label>
       <label
         >{{ tipo === 'despesa' ? 'Vencimento' : 'Data de recebimento'
-        }}<input v-model="data" required type="date"
+        }}<input
+          v-model="data"
+          required
+          type="date"
+          :max="tipo === 'receita' ? hojeSaoPaulo() : undefined"
       /></label>
       <label
         >Categoria<input v-model="categoria" required maxlength="50" placeholder="Ex.: serviços"
