@@ -4,6 +4,8 @@ import { RouterView, useRoute } from 'vue-router'
 import NotificacoesFlutuantes from './components/feedback/NotificacoesFlutuantes.vue'
 import { useAuthStore } from './stores/auth'
 import { useNotificacoesStore } from './stores/notificacoes'
+import { usePreferenciasStore } from './stores/preferencias'
+const preferencias = usePreferenciasStore()
 const auth = useAuthStore()
 const route = useRoute()
 const notificacoes = useNotificacoesStore()
@@ -39,5 +41,5 @@ watch(sessaoAusente, (ausente) => {
 </script>
 <template>
   <RouterView />
-  <NotificacoesFlutuantes />
+  <NotificacoesFlutuantes v-if="preferencias.visualizacao.notificacoes" />
 </template>

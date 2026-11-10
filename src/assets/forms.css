@@ -20,28 +20,28 @@
   width: 100%;
   min-width: 0;
   padding: 13px 14px;
-  background: #0a211d;
-  border: 1px solid #28433e;
-  color: #f6faf9;
+  background: var(--field-0a211d);
+  border: 1px solid var(--border-28433e);
+  color: var(--text-f6faf9);
   border-radius: 10px;
   font: inherit;
-  color-scheme: dark;
+  color-scheme: var(--color-scheme);
 }
 .cadastro-form input:focus,
 .cadastro-form select:focus {
-  outline: 2px solid var(--accent, #00bf88);
+  outline: 2px solid var(--accent, var(--focus-00bf88));
   outline-offset: 2px;
 }
 .form-hint {
-  color: #9faeac;
+  color: var(--muted-9faeac);
   line-height: 1.6;
 }
 .submit-button {
   padding: 14px;
   border: 0;
   border-radius: 10px;
-  background: var(--accent, #00bf88);
-  color: #fff;
+  background: var(--accent, var(--positive-action-00bf88));
+  color: var(--on-accent-fff);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -57,10 +57,10 @@
   border-radius: 10px;
 }
 .form-error {
-  background: #391e20;
-  color: #ffb8bc;
+  background: var(--danger-surface-391e20);
+  color: var(--danger-text-ffb8bc);
 }
 .form-success {
-  background: #10382a;
-  color: #a8f6bc;
+  background: var(--surface-10382a);
+  color: var(--positive-text-a8f6bc);
 }

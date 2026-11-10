@@ -1,0 +1,259 @@
+.home-dashboard .header-tools {
+  gap: 10px;
+}
+.home-dashboard .header-control {
+  position: relative;
+}
+.home-dashboard .header-action,
+.panel-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px;
+  border: 1px solid var(--border-365448);
+  border-radius: 12px;
+  background: var(--surface-102b22);
+  color: var(--text-d6e9df);
+  cursor: pointer;
+  font: inherit;
+  transition:
+    background 0.18s,
+    border-color 0.18s,
+    transform 0.18s;
+}
+
+.home-dashboard .header-tools svg {
+  width: 22px;
+  height: 22px;
+}
+.home-dashboard .header-tools button:hover,
+.panel-secondary:hover {
+  background: var(--hover-204334);
+  border-color: var(--border-60947b);
+}
+.home-dashboard .header-tools button:active,
+.panel-secondary:active {
+  transform: scale(0.95);
+  background: var(--hover-2d5141);
+}
+.home-dashboard .header-tools button:focus-visible,
+.settings-content :focus-visible,
+.profile-privacy :focus-visible {
+  outline: 3px solid var(--focus-a7edcf);
+  outline-offset: 3px;
+}
+.header-tooltip {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 9px);
+  padding: 8px 11px;
+  border: 1px solid var(--border-517460);
+  border-radius: 8px;
+  background: var(--surface-18382c);
+  color: var(--text-edfff5);
+  white-space: nowrap;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 50;
+  transition: opacity 0.15s;
+}
+.header-control:hover .header-tooltip,
+.header-control:focus-within .header-tooltip {
+  opacity: 1;
+}
+.settings-content {
+  padding-top: 12px;
+}
+.drawer-note,
+.privacy-copy {
+  color: var(--muted-b2c7bb);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.settings-group {
+  border: 0;
+  padding: 0;
+  margin: 25px 0;
+  min-width: 0;
+}
+.settings-group legend,
+.profile-privacy h3 {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: var(--text-e1f1e6);
+}
+.settings-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  border-bottom: 1px solid var(--border-294238);
+  cursor: pointer;
+  font-size: 14px;
+}
+.settings-option input {
+  appearance: none;
+  flex-shrink: 0;
+  width: 42px;
+  height: 26px;
+  border: 1px solid var(--border-71897c);
+  border-radius: 20px;
+  background: var(--field-294036);
+  position: relative;
+  cursor: pointer;
+  margin: 10px 3px;
+  transition: background 0.18s;
+}
+.settings-option input::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  top: 3px;
+  left: 3px;
+  border-radius: 50%;
+  background: var(--field-e4f4eb);
+  transition: transform 0.18s;
+}
+.settings-option input:checked {
+  background: var(--field-24764f);
+  border-color: var(--border-85d3a8);
+}
+.settings-option input:checked::before {
+  transform: translateX(16px);
+}
+.profile-avatar {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  margin: 8px 0 24px;
+  border-radius: 24px;
+  background: var(--surface-193d2e);
+  border: 1px solid var(--border-39624d);
+  color: var(--positive-text-a6e5be);
+}
+.profile-avatar svg {
+  width: 36px;
+  height: 36px;
+}
+.profile-privacy {
+  border-top: 1px solid var(--border-294238);
+  margin-top: 30px;
+  padding-top: 18px;
+}
+.privacy-copy h4 {
+  color: var(--text-e1f1e6);
+  margin-bottom: 0;
+}
+.home-content-grid.custom-visibility {
+  grid-template-areas: none;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+}
+.home-content-grid.custom-visibility > :is(.home-alerts, .quick-summary, .movements) {
+  grid-area: auto;
+}
+@media (max-width: 600px) {
+  .home-dashboard .dashboard-header {
+    padding: 12px 10px;
+    height: auto;
+    min-height: 76px;
+    gap: 8px;
+  }
+  .home-dashboard .dashboard-header img {
+    width: 112px;
+    height: 48px;
+    min-width: 0;
+  }
+  .home-dashboard .header-tools {
+    gap: 5px;
+    flex-shrink: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .header-tools *,
+  .settings-content *,
+  .panel-secondary {
+    transition: none !important;
+  }
+}
+
+.profile-session {
+  border-top: 1px solid var(--border);
+  margin-top: 28px;
+  padding-top: 24px;
+}
+.session-exit {
+  color: var(--danger);
+  background: transparent;
+}
+.session-exit:hover {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+.privacy-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 24px;
+}
+.privacy-heading h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.4;
+  color: var(--text);
+}
+.privacy-heading .privacy-back {
+  padding: 10px;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+.privacy-heading .header-control {
+  position: relative;
+}
+.privacy-heading .header-tooltip {
+  right: auto;
+  left: 0;
+}
+.privacy-copy > section {
+  margin: 0 0 24px;
+}
+.privacy-copy h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--text);
+}
+.privacy-copy p + p {
+  margin-top: 10px;
+}
+.privacy-copy ul {
+  padding-left: 22px;
+  margin: 8px 0 0;
+}
+.privacy-copy li + li {
+  margin-top: 7px;
+}
+.settings-appearance {
+  margin-top: 24px;
+}
+.settings-appearance h3 {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.settings-option input {
+  background: var(--muted);
+  border-color: var(--muted);
+}
+.settings-option input::before {
+  background: var(--switch-thumb);
+}
+.settings-option input:checked {
+  background: var(--action);
+  border-color: var(--action);
+}

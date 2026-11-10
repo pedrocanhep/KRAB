@@ -13,6 +13,8 @@ const paths: Record<string, string> = {
   config:
     'm9 3-1 3-3 1-2 4 2 3v3l4 2 3-1 3 1 4-2v-3l2-3-2-4-3-1-1-3H9Zm7 9a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',
   perfil: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-2a8 8 0 0 1 16 0v2H4Z',
+  voltar: 'M19 12H5m7-7-7 7 7 7',
+  lua: 'M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z',
   fechar: 'm6 6 12 12M6 18 18 6',
 }
 </script>
